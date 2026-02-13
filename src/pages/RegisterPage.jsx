@@ -218,31 +218,31 @@ export default function RegisterPage() {
                                     className="flex-1"
                                     {...mobileForm.register('mobile')}
                                     error={mobileForm.formState.errors.mobile?.message}
-                                    rightElement={
-                                        mobileVerified ? (
-                                            <span className="flex items-center gap-1 bg-[#E8F5EA] text-[#26A541] px-3 py-1 rounded text-xs font-medium">
-                                                <CheckCircle className="w-3.5 h-3.5" />
-                                                Verified
-                                            </span>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSendOtp('mobile')}
-                                                className="text-[#2874F0] text-sm font-medium hover:underline"
-                                                disabled={!mobileForm.watch('mobile')}
-                                            >
-                                                Send OTP
-                                            </button>
-                                        )
-                                    }
+                                // rightElement={
+                                //     mobileVerified ? (
+                                //         <span className="flex items-center gap-1 bg-[#E8F5EA] text-[#26A541] px-3 py-1 rounded text-xs font-medium">
+                                //             <CheckCircle className="w-3.5 h-3.5" />
+                                //             Verified
+                                //         </span>
+                                //     ) : (
+                                //         <button
+                                //             type="button"
+                                //             onClick={() => handleSendOtp('mobile')}
+                                //             className="text-[#2874F0] text-sm font-medium hover:underline"
+                                //             disabled={!mobileForm.watch('mobile')}
+                                //         >
+                                //             Send OTP
+                                //         </button>
+                                //     )
+                                // }
                                 />
                             </div>
 
-                            {!mobileVerified && (
+                            {/* {!mobileVerified && (
                                 <p className="text-sm text-[#2874F0]">
                                     Please verify your mobile number through OTP before you register
                                 </p>
-                            )}
+                            )} */}
 
                             <div className="flex items-center gap-3">
                                 <Mail className="w-5 h-5 text-[#878787]" />
