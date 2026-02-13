@@ -58,7 +58,7 @@ const useAuthStore = create(
             login: async (email, password) => {
                 set({ error: null });
                 try {
-                    const response = await apiClient.post('/auth/login', { email, password, loginAs: 'retailer' });
+                    const response = await apiClient.post('/auth/login', { email, password, loginAs: 'admin' });
                     // Backend wraps response: { success, message, data: { user, accessToken, refreshToken } }
                     const payload = response.data?.data || response.data;
                     const { user, accessToken, refreshToken } = payload;
