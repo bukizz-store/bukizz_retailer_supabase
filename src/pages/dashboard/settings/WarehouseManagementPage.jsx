@@ -52,7 +52,7 @@ const WarehouseManagementPage = () => {
           line2: warehouse.address?.line2 || "",
           city: warehouse.address?.city || "",
           state: warehouse.address?.state || "",
-          postalCode: warehouse.address?.postalCode || "",
+          postalCode: warehouse.address?.postal_code || "",
           country: warehouse.address?.country || "India",
         },
       });

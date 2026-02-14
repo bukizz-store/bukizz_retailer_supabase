@@ -2,6 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import SchoolRequestModal from '@/components/dashboard/SchoolRequestModal';
+import useSchoolStore from '@/store/schoolStore';
+import { useWarehouse } from '@/context/WarehouseContext';
 import { mockDashboardStats, mockActionItems, mockOrders } from '@/data/mockData';
 import {
     TrendingUp,
@@ -55,6 +58,14 @@ const statCards = [
 ];
 
 export default function Overview() {
+    const { activeWarehouse } = useWarehouse();
+    const { openRequestModal } = useSchoolStore();
+
+    const handleRequestSchoolAccess = () => {
+        const city = activeWarehouse?.address?.city || activeWarehouse?.city || '';
+        openRequestModal(city);
+    };
+
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Page Header */}
@@ -72,12 +83,10 @@ export default function Overview() {
                         <Package className="h-4 w-4" />
                         Add Product
                     </Button>
-                    <Link to="/dashboard/inventory/schools">
-                        <Button size="sm">
-                            <Plus className="h-4 w-4" />
-                            Request School Access
-                        </Button>
-                    </Link>
+                    <Button size="sm" onClick={handleRequestSchoolAccess}>
+                        <Plus className="h-4 w-4" />
+                        Request School Access
+                    </Button>
                 </div>
             </div>
 
@@ -228,6 +237,9 @@ export default function Overview() {
                     </Link>
                 ))}
             </div>
+
+            {/* School Request Modal (powered by schoolStore + warehouse city) */}
+            <SchoolRequestModal />
         </div>
     );
 }
