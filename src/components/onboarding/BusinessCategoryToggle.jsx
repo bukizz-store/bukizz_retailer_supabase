@@ -10,12 +10,6 @@ export function BusinessCategoryToggle({ value, onChange, error }) {
             subtitle: '(GSTIN is mandatory)',
             icon: Package,
         },
-        {
-            id: 'only_books',
-            title: 'Only Books',
-            subtitle: '(PAN is mandatory)',
-            icon: BookOpen,
-        },
     ];
 
     return (

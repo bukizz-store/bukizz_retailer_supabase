@@ -16,7 +16,7 @@ const loginSchema = z.object({
 export default function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { login, error, clearError } = useAuthStore();
+    const { login, runPostLoginChecks, error, clearError } = useAuthStore();
 
     const from = location.state?.from?.pathname || '/dashboard';
 
@@ -27,8 +27,28 @@ export default function LoginPage() {
     const onSubmit = async (data) => {
         clearError();
         const result = await login(data.email, data.password);
-        if (result.success) {
-            navigate(from, { replace: true });
+        if (!result.success) return;
+
+        // Run post-login verification checks
+        const checks = await runPostLoginChecks();
+
+        switch (checks.destination) {
+            case 'dashboard':
+                navigate(from === '/login' ? '/dashboard' : from, { replace: true });
+                break;
+            case 'onboarding':
+                // Profile incomplete → send to register page (ID & Signature step)
+                navigate('/register', { replace: true, state: { resumeOnboarding: true, missingFields: checks.missingFields } });
+                break;
+            case 'onboarding-warehouse':
+                // Profile complete but no warehouse → send to register page (Store & Pickup step)
+                navigate('/register', { replace: true, state: { resumeOnboarding: true, resumeStep: 'business' } });
+                break;
+            case 'pending':
+            default:
+                // Pending approval or deactivated
+                navigate('/pending-approval', { replace: true });
+                break;
         }
     };
 
