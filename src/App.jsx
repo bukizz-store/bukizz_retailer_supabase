@@ -14,6 +14,7 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import PendingApprovalPage from './pages/PendingApprovalPage';
 
 // Layouts
 import DashboardLayout from "./layouts/DashboardLayout";
@@ -71,6 +72,7 @@ export default function App() {
           }
         />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/pending-approval" element={<PendingApprovalPage />} />
 
         {/* Protected (redirect to login if not authenticated) */}
         <Route

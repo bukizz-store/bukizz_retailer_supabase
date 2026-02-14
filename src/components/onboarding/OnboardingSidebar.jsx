@@ -21,12 +21,6 @@ const steps = [
         description: 'Add your business information',
         substeps: ['Display Name', 'Pickup Address']
     },
-    {
-        id: 'bank',
-        title: 'Listing & Stock Availability',
-        description: 'Complete your setup',
-        substeps: ['Listing Created', 'Stock Added']
-    },
 ];
 
 export function OnboardingSidebar({ currentStep, completedSteps }) {

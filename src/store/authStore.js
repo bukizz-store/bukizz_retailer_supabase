@@ -9,10 +9,17 @@ const useAuthStore = create(
             user: null,
             accessToken: null,
             refreshToken: null,
+            isOnboarding: false, // true while user is mid-registration (OTP verified but onboarding not complete)
 
             // ── Transient State (never persisted, reset on refresh) ─────────
             isInitialized: false, // flips to true once init check completes
             error: null,
+
+            // ── Verification & Data Status (checked after login) ────────────
+            verificationStatus: null, // { isVerified, isActive, status, deactivationReason, message }
+            dataStatus: null,         // { hasData, isComplete, missingFields, message }
+            warehouseStatus: null,    // { hasWarehouse, warehouses }
+            isVerificationChecked: false, // true once post-login checks complete
 
             // ── Actions ────────────────────────────────────────────────────
 
@@ -58,7 +65,7 @@ const useAuthStore = create(
             login: async (email, password) => {
                 set({ error: null });
                 try {
-                    const response = await apiClient.post('/auth/login', { email, password, loginAs: 'admin' });
+                    const response = await apiClient.post('/auth/login-retailer', { email, password });
                     // Backend wraps response: { success, message, data: { user, accessToken, refreshToken } }
                     const payload = response.data?.data || response.data;
                     const { user, accessToken, refreshToken } = payload;
@@ -67,6 +74,7 @@ const useAuthStore = create(
                         user,
                         accessToken,
                         refreshToken,
+                        isOnboarding: false,
                         isInitialized: true,
                         error: null,
                     });
@@ -83,15 +91,142 @@ const useAuthStore = create(
             },
 
             /**
+             * Check retailer verification status.
+             * Called after login to determine if the account is authorized.
+             */
+            checkVerificationStatus: async () => {
+                try {
+                    const response = await apiClient.get('/retailer/verification-status');
+                    const data = response.data?.data;
+                    set({ verificationStatus: data });
+                    return { success: true, data };
+                } catch (error) {
+                    const message =
+                        error.response?.data?.message ||
+                        'Failed to check verification status.';
+                    return { success: false, error: message };
+                }
+            },
+
+            /**
+             * Check retailer data/profile completion status.
+             * Called when retailer is not yet authorized to determine onboarding state.
+             */
+            checkDataStatus: async () => {
+                try {
+                    const response = await apiClient.get('/retailer/data/status');
+                    const data = response.data?.data;
+                    set({ dataStatus: data });
+                    return { success: true, data };
+                } catch (error) {
+                    const message =
+                        error.response?.data?.message ||
+                        'Failed to check data status.';
+                    return { success: false, error: message };
+                }
+            },
+
+            /**
+             * Check if the retailer has any warehouses.
+             * Called after data is complete to determine if store setup is done.
+             */
+            checkWarehouseStatus: async () => {
+                try {
+                    const { user } = get();
+                    const retailerId = user?.id || user?._id;
+                    if (!retailerId) {
+                        return { success: false, error: 'No retailer ID found.' };
+                    }
+                    const response = await apiClient.get(`/warehouses/retailer/${retailerId}`);
+                    const warehouses = response.data?.data?.warehouses || [];
+                    const data = { hasWarehouse: warehouses.length > 0, warehouses };
+                    set({ warehouseStatus: data });
+                    return { success: true, data };
+                } catch (error) {
+                    const message =
+                        error.response?.data?.message ||
+                        'Failed to check warehouse status.';
+                    return { success: false, error: message };
+                }
+            },
+
+            /**
+             * Full post-login verification flow.
+             * 1. Check verification status
+             * 2. If not authorized, check data completeness
+             * 3. If data complete, check warehouse existence
+             * Returns: { destination, message? }
+             *   destination: 'dashboard' | 'onboarding' | 'onboarding-warehouse' | 'pending'
+             */
+            runPostLoginChecks: async () => {
+                set({ isVerificationChecked: false });
+
+                // Step 1: Check verification status
+                const verResult = await get().checkVerificationStatus();
+
+                // If verification check itself fails, still proceed to data checks
+                // rather than blocking the user at pending screen
+                const verData = verResult.success ? verResult.data : null;
+                const status = verData?.status;
+                const message = verData?.message || verResult.error;
+
+                // Authorized → go to dashboard
+                if (status === 'authorized') {
+                    set({ isVerificationChecked: true });
+                    return { destination: 'dashboard' };
+                }
+
+                // Not authorized (pending/deactivated/unknown) → check data completeness
+                const dataResult = await get().checkDataStatus();
+
+                // If data status API fails, assume profile is incomplete → send to onboarding
+                if (!dataResult.success) {
+                    set({ isOnboarding: true, isVerificationChecked: true });
+                    return { destination: 'onboarding', missingFields: [], message: message || 'Please complete your profile.' };
+                }
+
+                const { isComplete, missingFields } = dataResult.data;
+
+                if (!isComplete) {
+                    // Profile incomplete → send to onboarding (ID & Signature step)
+                    set({ isOnboarding: true, isVerificationChecked: true });
+                    return { destination: 'onboarding', missingFields, message };
+                }
+
+                // Step 3: Data is complete → check if warehouse exists
+                const whResult = await get().checkWarehouseStatus();
+                if (!whResult.success || !whResult.data.hasWarehouse) {
+                    // No warehouse or API failed → send to Store & Pickup step
+                    set({ isOnboarding: true, isVerificationChecked: true });
+                    return { destination: 'onboarding-warehouse', message };
+                }
+
+                // Data is complete + warehouse exists but not authorized → pending approval
+                set({ isVerificationChecked: true });
+                return { destination: 'pending', message };
+            },
+
+            /**
+             * Reset verification state (on logout).
+             */
+            resetVerificationState: () => set({
+                verificationStatus: null,
+                dataStatus: null,
+                warehouseStatus: null,
+                isVerificationChecked: false,
+            }),
+
+            /**
              * Register a new retailer account.
              */
-            register: async (fullName, email, password) => {
+            register: async (fullName, email, password, phone) => {
                 set({ error: null });
                 try {
-                    const response = await apiClient.post('/auth/register', {
+                    const response = await apiClient.post('/auth/register-retailer', {
                         fullName,
                         email,
                         password,
+                        phone,
                     });
 
                     const payload = response.data?.data || response.data;
@@ -119,15 +254,16 @@ const useAuthStore = create(
             },
 
             /**
-             * Send OTP for registration (Pre-registration).
+             * Send OTP for retailer registration.
              */
-            sendOtp: async (fullName, email, password) => {
+            sendOtp: async (fullName, email, password, mobile) => {
                 set({ error: null });
                 try {
-                    await apiClient.post('/auth/send-otp', {
-                        fullName,
+                    await apiClient.post('/auth/send-retailer-otp', {
                         email,
                         password,
+                        fullName,
+                        phone: mobile || undefined,
                     });
                     return { success: true };
                 } catch (error) {
@@ -141,12 +277,12 @@ const useAuthStore = create(
             },
 
             /**
-             * Verify OTP and complete registration.
+             * Verify retailer OTP and complete registration.
              */
             verifyOtp: async (email, otp) => {
                 set({ error: null });
                 try {
-                    const response = await apiClient.post('/auth/verify-otp', {
+                    const response = await apiClient.post('/auth/verify-retailer-otp', {
                         email,
                         otp,
                     });
@@ -159,6 +295,7 @@ const useAuthStore = create(
                             user,
                             accessToken,
                             refreshToken,
+                            isOnboarding: true,
                             isInitialized: true,
                             error: null,
                         });
@@ -192,6 +329,10 @@ const useAuthStore = create(
                         accessToken: null,
                         refreshToken: null,
                         error: null,
+                        verificationStatus: null,
+                        dataStatus: null,
+                        warehouseStatus: null,
+                        isVerificationChecked: false,
                     });
                 }
             },
@@ -261,6 +402,11 @@ const useAuthStore = create(
                 }
             },
 
+            /**
+             * Mark onboarding as complete (called after final registration step).
+             */
+            completeOnboarding: () => set({ isOnboarding: false }),
+
             clearError: () => set({ error: null }),
         }),
         {
@@ -272,6 +418,7 @@ const useAuthStore = create(
                 user: state.user,
                 accessToken: state.accessToken,
                 refreshToken: state.refreshToken,
+                isOnboarding: state.isOnboarding,
             }),
         }
     )
@@ -288,5 +435,6 @@ const useAuthStore = create(
  * 3. If the token is invalid, the interceptor logs you out
  */
 export const selectIsAuthenticated = (state) => !!state.accessToken;
+export const selectIsOnboarding = (state) => !!state.isOnboarding;
 
 export default useAuthStore;
