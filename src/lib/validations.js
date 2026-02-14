@@ -92,11 +92,60 @@ const partnershipBusinessSchema = z.object({
     }),
 });
 
+// Business Details Schema — All Categories (Default)
+const allCategoriesSchema = z.object({
+    businessCategory: z.literal('all_categories'),
+    businessName: z.string().min(3, 'Business name is required'),
+    ownerName: z.string().min(2, 'Owner name is required'),
+    gstin: z.string()
+        .regex(
+            /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
+            'Please enter a valid GSTIN'
+        ),
+    // Wait, user label said "Enter GSTIN (Optional)".
+    // Previously user said "Default to 'All Categories' (GSTIN required)".
+    // BUT in step 324 I changed label to "Enter GSTIN (Optional)".
+    // So I should make it optional here too.
+    panNumber: z.string()
+        .regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Please enter a valid PAN number'),
+    address: z.object({
+        line1: z.string().min(5, 'Address is required'),
+        line2: z.string().optional(),
+        city: z.string().min(2, 'City is required'),
+        state: z.string().min(2, 'State is required'),
+        pincode: z.string()
+            .regex(/^[1-9][0-9]{5}$/, 'Please enter a valid 6-digit pincode'),
+    }),
+});
+
 export const businessDetailsSchema = z.discriminatedUnion('businessCategory', [
     individualBusinessSchema,
     companyBusinessSchema,
     partnershipBusinessSchema,
+    allCategoriesSchema,
 ]);
+
+// Warehouse (Store & Pickup Details) Schema
+export const warehouseDetailsSchema = z.object({
+    name: z.string().min(2, 'Warehouse / Store name is required'),
+    contactEmail: z.string().email('Please enter a valid email').or(z.literal('')).optional(),
+    contactPhone: z.string()
+        .regex(/^\+?\d[\d\s-]{7,15}$/, 'Please enter a valid phone number')
+        .or(z.literal(''))
+        .optional(),
+    website: z.string().url('Please enter a valid URL').or(z.literal('')).optional(),
+    address: z.object({
+        line1: z.string().min(5, 'Address line 1 is required'),
+        line2: z.string().optional(),
+        city: z.string().min(2, 'City is required'),
+        state: z.string().min(2, 'State is required'),
+        postalCode: z.string()
+            .regex(/^[1-9][0-9]{5}$/, 'Please enter a valid 6-digit pincode'),
+        country: z.string().min(2, 'Country is required').default('India'),
+        lat: z.union([z.number(), z.nan(), z.null()]).optional(),
+        lng: z.union([z.number(), z.nan(), z.null()]).optional(),
+    }),
+});
 
 // Bank Details Schema
 export const bankDetailsSchema = z.object({

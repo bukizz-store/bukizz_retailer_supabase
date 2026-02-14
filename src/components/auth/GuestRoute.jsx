@@ -1,14 +1,17 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
-import useAuthStore, { selectIsAuthenticated } from '@/store/authStore';
+import { Navigate, useLocation } from 'react-router-dom';
+import useAuthStore, { selectIsAuthenticated, selectIsOnboarding } from '@/store/authStore';
 
 /**
  * Route guard for guest-only pages (login, register, forgot-password).
- * Redirects already-authenticated users to the dashboard.
+ * Redirects already-authenticated users to the dashboard,
+ * UNLESS they are mid-onboarding (still filling out register steps).
  */
 export default function GuestRoute({ children }) {
     const isAuthenticated = useAuthStore(selectIsAuthenticated);
+    const isOnboarding = useAuthStore(selectIsOnboarding);
     const isInitialized = useAuthStore((s) => s.isInitialized);
+    const location = useLocation();
 
     if (!isInitialized && !isAuthenticated) {
         return (
@@ -19,6 +22,16 @@ export default function GuestRoute({ children }) {
                 </div>
             </div>
         );
+    }
+
+    // Allow authenticated users who are still onboarding to stay on /register
+    if (isAuthenticated && isOnboarding && location.pathname === '/register') {
+        return children;
+    }
+
+    // Allow authenticated users redirected for onboarding resume (incomplete profile)
+    if (isAuthenticated && location.pathname === '/register' && location.state?.resumeOnboarding) {
+        return children;
     }
 
     if (isAuthenticated) {
