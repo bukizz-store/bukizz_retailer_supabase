@@ -1,61 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { Input } from '@/components/ui/Input';
 import { SchoolPermissionCard } from '@/components/dashboard/SchoolPermissionCard';
-import { mockSchoolRequests, mockAvailableSchools } from '@/data/mockData';
+import SchoolRequestModal from '@/components/dashboard/SchoolRequestModal';
+import useSchoolStore from '@/store/schoolStore';
+import { useWarehouse } from '@/context/WarehouseContext';
 import { cn } from '@/lib/utils';
 import {
     GraduationCap,
-    Search,
     Plus,
-    X,
-    MapPin,
-    ChevronRight,
-    Check,
+    Loader2,
+    AlertCircle,
+    RefreshCw,
 } from 'lucide-react';
 
 export default function MySchoolsPage() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('approved');
-    const [showRequestModal, setShowRequestModal] = useState(false);
-    const [schoolSearch, setSchoolSearch] = useState('');
-    const [selectedSchool, setSelectedSchool] = useState(null);
-    const [selectedCategories, setSelectedCategories] = useState([]);
+    const { activeWarehouse } = useWarehouse();
+    const {
+        openRequestModal,
+        connectedSchools,
+        isLoadingConnected,
+        connectedError,
+        fetchConnectedSchools,
+    } = useSchoolStore();
 
-    const approvedSchools = mockSchoolRequests.filter(s => s.status === 'approved');
-    const pendingSchools = mockSchoolRequests.filter(s => s.status === 'pending');
-    const rejectedSchools = mockSchoolRequests.filter(s => s.status === 'rejected');
+    // Fetch connected schools for each status on mount
+    useEffect(() => {
+        fetchConnectedSchools('approved');
+        fetchConnectedSchools('pending');
+        fetchConnectedSchools('rejected');
+    }, []);
 
-    const filteredAvailableSchools = mockAvailableSchools.filter(
-        school => schoolSearch === '' ||
-            school.name.toLowerCase().includes(schoolSearch.toLowerCase()) ||
-            school.address.toLowerCase().includes(schoolSearch.toLowerCase())
-    );
-
-    const toggleCategory = (category) => {
-        setSelectedCategories(prev =>
-            prev.includes(category)
-                ? prev.filter(c => c !== category)
-                : [...prev, category]
-        );
+    const handleOpenRequestModal = () => {
+        const city = activeWarehouse?.address?.city || activeWarehouse?.city || '';
+        openRequestModal(city);
     };
 
     const tabs = [
-        { id: 'approved', label: 'Approved', count: approvedSchools.length },
-        { id: 'pending', label: 'Pending', count: pendingSchools.length },
-        { id: 'rejected', label: 'Rejected', count: rejectedSchools.length },
+        { id: 'approved', label: 'Approved', count: connectedSchools.approved.length },
+        { id: 'pending', label: 'Pending', count: connectedSchools.pending.length },
+        { id: 'rejected', label: 'Rejected', count: connectedSchools.rejected.length },
     ];
 
-    const getCurrentSchools = () => {
-        switch (activeTab) {
-            case 'approved': return approvedSchools;
-            case 'pending': return pendingSchools;
-            case 'rejected': return rejectedSchools;
-            default: return [];
-        }
-    };
+    const currentSchools = connectedSchools[activeTab] || [];
+    const isLoading = isLoadingConnected[activeTab];
+    const error = connectedError[activeTab];
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -67,7 +58,7 @@ export default function MySchoolsPage() {
                         Manage your school partnerships and product access
                     </p>
                 </div>
-                <Button onClick={() => setShowRequestModal(true)}>
+                <Button onClick={handleOpenRequestModal}>
                     <Plus className="h-4 w-4" />
                     Request School Access
                 </Button>
@@ -99,22 +90,55 @@ export default function MySchoolsPage() {
                 ))}
             </div>
 
-            {/* School Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {getCurrentSchools().map((request) => (
-                    <SchoolPermissionCard
-                        key={request.id}
-                        school={request.school}
-                        status={request.status}
-                        requestedCategories={request.requestedCategories}
-                        rejectionReason={request.rejectionReason}
-                        onManageProducts={() => navigate(`/dashboard/inventory/schools/${request.school.id}`)}
-                        onRetry={() => console.log('Retry request for', request.school.id)}
-                    />
-                ))}
-            </div>
+            {/* Error State */}
+            {error && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+                    <div className="flex items-center gap-3">
+                        <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500" />
+                        <p className="text-sm text-red-700">{error}</p>
+                    </div>
+                    <button
+                        onClick={() => fetchConnectedSchools(activeTab)}
+                        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 transition-colors"
+                    >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Retry
+                    </button>
+                </div>
+            )}
 
-            {getCurrentSchools().length === 0 && (
+            {/* Loading State */}
+            {isLoading && (
+                <div className="flex flex-col items-center justify-center py-16">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                    <p className="mt-3 text-sm text-slate-500">
+                        Loading {activeTab} schools…
+                    </p>
+                </div>
+            )}
+
+            {/* School Cards */}
+            {!isLoading && !error && currentSchools.length > 0 && (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {currentSchools.map((entry) => (
+                        <SchoolPermissionCard
+                            key={entry.schoolId}
+                            entry={entry}
+                            onManageProducts={() =>
+                                navigate(`/dashboard/inventory/schools/${entry.schoolId}`, {
+                                    state: { allowedTypes: entry.productType || [] },
+                                })
+                            }
+                            onRetry={() => {
+                                handleOpenRequestModal();
+                            }}
+                        />
+                    ))}
+                </div>
+            )}
+
+            {/* Empty State */}
+            {!isLoading && !error && currentSchools.length === 0 && (
                 <div className="py-16 text-center">
                     <div className="mx-auto mb-4 h-32 w-32 rounded-full bg-slate-100 flex items-center justify-center">
                         <GraduationCap className="h-12 w-12 text-slate-300" />
@@ -130,7 +154,7 @@ export default function MySchoolsPage() {
                                 : "No rejected requests"}
                     </p>
                     {activeTab === 'approved' && (
-                        <Button className="mt-4" onClick={() => setShowRequestModal(true)}>
+                        <Button className="mt-4" onClick={handleOpenRequestModal}>
                             <Plus className="h-4 w-4" />
                             Request School Access
                         </Button>
@@ -138,121 +162,12 @@ export default function MySchoolsPage() {
                 </div>
             )}
 
-            {/* Request School Modal */}
-            {showRequestModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowRequestModal(false)} />
-                    <div className="relative z-50 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-xl">
-                        {/* Modal Header */}
-                        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4 rounded-t-2xl">
-                            <h2 className="text-xl font-bold text-slate-900">Request School Access</h2>
-                            <button
-                                onClick={() => setShowRequestModal(false)}
-                                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-
-                        <div className="p-6 space-y-6">
-                            {/* Search Schools */}
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Search for a school
-                                </label>
-                                <Input
-                                    placeholder="Search by school name or location..."
-                                    value={schoolSearch}
-                                    onChange={(e) => setSchoolSearch(e.target.value)}
-                                    icon={<Search className="h-4 w-4" />}
-                                />
-                            </div>
-
-                            {/* School List */}
-                            <div className="space-y-3 max-h-64 overflow-y-auto">
-                                {filteredAvailableSchools.map((school) => (
-                                    <button
-                                        key={school.id}
-                                        onClick={() => setSelectedSchool(school.id)}
-                                        className={cn(
-                                            "w-full flex items-start gap-4 rounded-xl border-2 p-4 text-left transition-all",
-                                            selectedSchool === school.id
-                                                ? "border-blue-600 bg-blue-50"
-                                                : "border-slate-200 hover:border-blue-300"
-                                        )}
-                                    >
-                                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-violet-100">
-                                            <GraduationCap className="h-6 w-6 text-violet-600" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-medium text-slate-900">{school.name}</p>
-                                            <div className="flex items-center gap-1 mt-1">
-                                                <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                                                <p className="text-sm text-slate-500 truncate">{school.address}</p>
-                                            </div>
-                                        </div>
-                                        {selectedSchool === school.id && (
-                                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white flex-shrink-0">
-                                                <Check className="h-4 w-4" />
-                                            </div>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Category Selection */}
-                            {selectedSchool && (
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-3">
-                                        Select product categories you want to sell
-                                    </label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {['Books', 'Notebooks', 'Stationery', 'Uniforms', 'Bags', 'Art Supplies'].map(
-                                            (category) => (
-                                                <button
-                                                    key={category}
-                                                    onClick={() => toggleCategory(category)}
-                                                    className={cn(
-                                                        "rounded-full px-4 py-2 text-sm font-medium transition-colors border",
-                                                        selectedCategories.includes(category)
-                                                            ? "bg-blue-600 text-white border-blue-600"
-                                                            : "bg-white text-slate-600 border-slate-300 hover:border-blue-300"
-                                                    )}
-                                                >
-                                                    {selectedCategories.includes(category) && (
-                                                        <Check className="h-3.5 w-3.5 inline-block mr-1" />
-                                                    )}
-                                                    {category}
-                                                </button>
-                                            )
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="sticky bottom-0 border-t border-slate-200 bg-slate-50 px-6 py-4 rounded-b-2xl">
-                            <div className="flex justify-end gap-3">
-                                <Button variant="outline" onClick={() => setShowRequestModal(false)}>
-                                    Cancel
-                                </Button>
-                                <Button
-                                    disabled={!selectedSchool || selectedCategories.length === 0}
-                                    onClick={() => {
-                                        setShowRequestModal(false);
-                                        setSelectedSchool(null);
-                                        setSelectedCategories([]);
-                                    }}
-                                >
-                                    Submit Request
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* School Request Modal (powered by schoolStore + warehouse city) */}
+            <SchoolRequestModal
+                onSuccess={() => {
+                    fetchConnectedSchools('pending');
+                }}
+            />
         </div>
     );
 }
