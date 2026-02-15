@@ -24,6 +24,8 @@ import {
   Type,
   Check,
   GripVertical,
+  GraduationCap,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -187,23 +189,62 @@ function BrandCombobox({ selected, onSelect, onAddNew, refreshKey }) {
 // ────────────────────────────────────────────────────────────────
 // Main Component
 // ────────────────────────────────────────────────────────────────
-export default function ProductDetailsForm({ category, onBack, onSuccess }) {
+const GRADE_OPTIONS = [
+  "Nursery",
+  "LKG",
+  "UKG",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+  "11",
+  "12",
+];
+
+export default function ProductDetailsForm({
+  category,
+  onBack,
+  onSuccess,
+  // School-specific props (optional)
+  schoolId = null,
+  schoolName = null,
+  schoolProductType = null,
+  prefilledCity = "",
+}) {
+  const isSchoolFlow = !!schoolId;
   const { activeWarehouse } = useWarehouse();
   const { toast } = useToast();
   const user = useAuthStore((s) => s.user);
 
   const [submitting, setSubmitting] = useState(false);
 
+  // ── School-specific State ─────────────────────────────────────
+  const [grade, setGrade] = useState("");
+  const [isMandatory, setIsMandatory] = useState(false);
+
   // ── Basic Info ────────────────────────────────────────────────
   const [formData, setFormData] = useState({
     title: "",
     sku: "",
-    city: "",
+    city: prefilledCity || "",
     basePrice: "",
     compareAtPrice: "",
     shortDescription: "",
     description: "", // RTE HTML — maps to productData.description
   });
+
+  // Auto-fill city from warehouse when in school flow
+  useEffect(() => {
+    if (prefilledCity && !formData.city) {
+      setFormData((prev) => ({ ...prev, city: prefilledCity }));
+    }
+  }, [prefilledCity]);
 
   const updateField = (field, value) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -656,6 +697,15 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
       }
     });
 
+    // School validation
+    if (isSchoolFlow && !grade) {
+      toast({
+        title: "Grade is required for school products",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const payload = {
       replaceVariants: false,
       replaceImages: false,
@@ -664,7 +714,7 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
       productData: {
         title: formData.title,
         sku: formData.sku,
-        productType: "general",
+        productType: isSchoolFlow ? schoolProductType : "general",
         basePrice: parseFloat(formData.basePrice),
         compareAtPrice: parseFloat(formData.compareAtPrice) || null,
         shortDescription: formData.shortDescription,
@@ -718,7 +768,13 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
         ? { type: "existing", brandId: selectedBrand.id }
         : null,
       categories: [{ id: category.id }],
-      schoolData: null,
+      schoolData: isSchoolFlow
+        ? {
+            schoolId: schoolId,
+            grade: grade,
+            mandatory: isMandatory,
+          }
+        : null,
     };
 
     setSubmitting(true);
@@ -780,6 +836,8 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
                 value={formData.city}
                 onChange={(e) => updateField("city", e.target.value)}
                 placeholder="e.g. Delhi"
+                disabled={!!prefilledCity}
+                helperText={prefilledCity ? "Auto-filled from warehouse" : ""}
               />
             </div>
 
@@ -1302,6 +1360,103 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
       {/* ════════════ RIGHT COLUMN (SIDEBAR) ════════════ */}
       <div className="lg:col-span-1">
         <div className="sticky top-6 space-y-6">
+          {/* ── School Info Card (only in school flow) ── */}
+          {isSchoolFlow && (
+            <Card>
+              <CardHeader className="flex-row items-center gap-3">
+                <div className="p-2 bg-violet-50 text-violet-600 rounded-lg">
+                  <GraduationCap size={20} />
+                </div>
+                <div>
+                  <CardTitle>School Product</CardTitle>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    Linked to school
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* School Name (read-only) */}
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-500">
+                    School
+                  </label>
+                  <div className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800">
+                    <GraduationCap className="h-4 w-4 text-violet-500 shrink-0" />
+                    {schoolName}
+                  </div>
+                </div>
+
+                {/* Product Type (read-only) */}
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-500">
+                    Product Type
+                  </label>
+                  <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800 capitalize">
+                    {schoolProductType}
+                  </div>
+                </div>
+
+                {/* City (read-only) */}
+                {prefilledCity && (
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-500">
+                      City
+                    </label>
+                    <div className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800">
+                      <MapPin className="h-4 w-4 text-blue-500 shrink-0" />
+                      {prefilledCity}
+                    </div>
+                  </div>
+                )}
+
+                {/* Grade Selector */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Grade <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value)}
+                    className="flex h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm transition-all hover:border-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="">Select Grade</option>
+                    {GRADE_OPTIONS.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Mandatory Toggle */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">
+                      Mandatory
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Is this product mandatory for the school?
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsMandatory(!isMandatory)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                      isMandatory ? "bg-blue-600" : "bg-slate-200",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform",
+                        isMandatory ? "translate-x-5" : "translate-x-0",
+                      )}
+                    />
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {/* ── Media (moved here) ── */}
           <Card>
             <CardHeader>

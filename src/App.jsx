@@ -28,6 +28,7 @@ import AddProductPage from "./pages/dashboard/inventory/AddProductPage";
 import InventoryHealthPage from "./pages/dashboard/inventory/InventoryHealthPage";
 import MySchoolsPage from "./pages/dashboard/inventory/MySchoolsPage";
 import SchoolProductManagementPage from "./pages/dashboard/inventory/SchoolProductManagementPage";
+import AddSchoolProductPage from "./pages/dashboard/inventory/AddSchoolProductPage";
 import ProductDetailPage from "./pages/dashboard/inventory/ProductDetailPage";
 import ActiveOrdersPage from "./pages/dashboard/orders/ActiveOrdersPage";
 import OrderViewPage from "./pages/dashboard/orders/OrderViewPage";
@@ -101,6 +102,10 @@ export default function App() {
           <Route
             path="inventory/schools/:schoolId"
             element={<SchoolProductManagementPage />}
+          />
+          <Route
+            path="inventory/schools/:schoolId/add"
+            element={<AddSchoolProductPage />}
           />
           <Route path="orders" element={<OrdersLayout />}>
             <Route index element={<ActiveOrdersPage />} />
