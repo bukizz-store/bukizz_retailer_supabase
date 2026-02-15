@@ -64,4 +64,14 @@ export const productService = {
     const response = await apiClient.post("/brands", brandData);
     return response.data;
   },
+
+  getProductById: async (id) => {
+    const response = await apiClient.get(`/products/${id}`);
+    return response.data;
+  },
+
+  deleteProduct: async (id) => {
+    const response = await apiClient.delete(`/products/${id}`);
+    return response.data;
+  },
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
@@ -29,6 +29,7 @@ const categories = [
 export default function GeneralStorePage() {
   const { activeWarehouse } = useWarehouse();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -279,13 +280,27 @@ export default function GeneralStorePage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-1">
-                        <button className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
+                        <button
+                          className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+                          onClick={() =>
+                            navigate(
+                              `/dashboard/inventory/general/${product.id}`,
+                            )
+                          }
+                          title="View product"
+                        >
                           <Eye className="h-4 w-4" />
                         </button>
-                        <button className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
+                        <button
+                          className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                          title="Edit product"
+                        >
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600">
+                        <button
+                          className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                          title="Delete product"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
