@@ -21,6 +21,9 @@ const badgeVariants = cva(
                 shipped: 'bg-indigo-100 text-indigo-700',
                 delivered: 'bg-emerald-100 text-emerald-700',
                 cancelled: 'bg-red-100 text-red-700',
+                initialized: 'bg-amber-100 text-amber-700',
+                out_for_delivery: 'bg-teal-100 text-teal-700',
+                refunded: 'bg-rose-100 text-rose-700',
             },
         },
         defaultVariants: {
@@ -44,6 +47,9 @@ const dotColors = {
     shipped: 'bg-indigo-500',
     delivered: 'bg-emerald-500',
     cancelled: 'bg-red-500',
+    initialized: 'bg-amber-500',
+    out_for_delivery: 'bg-teal-500',
+    refunded: 'bg-rose-500',
 };
 
 function Badge({ className, variant, dot, children, ...props }) {

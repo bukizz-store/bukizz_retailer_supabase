@@ -1,169 +1,315 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
-import { mockCancellations } from '@/data/mockData';
 import { cn } from '@/lib/utils';
+import { orderService } from '@/services/orderService';
+import { useWarehouse } from '@/context/WarehouseContext';
 import {
-    Search, Play, Download, Package, XCircle,
-    AlertTriangle, Calendar, User, Store, Filter,
+    Search, Download, Package, XCircle,
+    AlertTriangle, Calendar, MapPin,
+    Loader2, AlertCircle, RefreshCw, ShoppingBag, GraduationCap,
 } from 'lucide-react';
 
-export default function CancelledOrdersPage() {
-    const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState('all');
-    const [dateRange, setDateRange] = useState('last30');
+// ── Helpers ────────────────────────────────────────────────────
+function shortenOrderId(order) {
+    if (order.orderNumber) return order.orderNumber;
+    const id = order.id || '';
+    if (id.length <= 12) return id;
+    const short = id.replace(/-/g, '').slice(-8).toUpperCase();
+    return `#${short}`;
+}
 
-    const sellerCancelled = mockCancellations.filter(c => c.cancellationType === 'seller_cancelled').length;
-    const customerCancelled = mockCancellations.filter(c => c.cancellationType === 'customer_cancelled').length;
-    const totalLostRevenue = mockCancellations.reduce((sum, c) => sum + c.orderAmount, 0);
+function formatCurrency(amount) {
+    return `₹${Number(amount || 0).toLocaleString('en-IN')}`;
+}
 
-    const filteredCancellations = mockCancellations.filter(canc => {
-        const matchesSearch = searchQuery === '' ||
-            canc.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            canc.productName.toLowerCase().includes(searchQuery.toLowerCase());
-        if (activeTab === 'seller') return matchesSearch && canc.cancellationType === 'seller_cancelled';
-        if (activeTab === 'customer') return matchesSearch && canc.cancellationType === 'customer_cancelled';
-        return matchesSearch;
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'short', year: 'numeric',
     });
+}
 
-    const getReasonLabel = (reason) => {
-        const labels = {
-            out_of_stock: 'Out of Stock', price_error: 'Price Error',
-            customer_request: 'Customer Request', payment_failed: 'Payment Failed',
-            address_issue: 'Address Issue', other: 'Other',
-        };
-        return labels[reason];
-    };
+export default function CancelledOrdersPage() {
+    const { activeWarehouse } = useWarehouse();
+    const navigate = useNavigate();
+    const warehouseId = activeWarehouse?.id;
 
-    const getReasonBadge = (reason) => {
-        const colors = {
-            out_of_stock: 'bg-red-100 text-red-700', price_error: 'bg-amber-100 text-amber-700',
-            customer_request: 'bg-blue-100 text-blue-700', payment_failed: 'bg-orange-100 text-orange-700',
-            address_issue: 'bg-purple-100 text-purple-700', other: 'bg-slate-100 text-slate-700',
+    // ── State ──
+    const [orders, setOrders] = useState([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const searchTimeoutRef = useRef(null);
+
+    // ── Fetch cancelled orders ──
+    const fetchCancelledOrders = useCallback(async () => {
+        if (!warehouseId) {
+            setOrders([]);
+            setTotalCount(0);
+            return;
+        }
+        setIsLoading(true);
+        setError(null);
+        try {
+            const response = await orderService.getOrders(warehouseId, {
+                page, limit, status: 'cancelled', search: searchQuery,
+            });
+            const data = response?.data || response;
+            const items = data?.orders || data?.items || data || [];
+            const total = data?.totalCount ?? data?.total ?? data?.pagination?.total ?? items.length;
+            setOrders(Array.isArray(items) ? items : []);
+            setTotalCount(total);
+        } catch (err) {
+            const message = err.response?.data?.message || err.response?.data?.error || 'Failed to fetch cancelled orders.';
+            setError(message);
+            setOrders([]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [warehouseId, page, limit, searchQuery]);
+
+    useEffect(() => {
+        fetchCancelledOrders();
+    }, [fetchCancelledOrders]);
+
+    // ── Debounced search ──
+    const handleSearchChange = useCallback((e) => {
+        const value = e.target.value;
+        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = setTimeout(() => {
+            setSearchQuery(value);
+            setPage(1);
+        }, 400);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         };
-        return (
-            <span className={cn("px-2 py-1 rounded-full text-xs font-medium", colors[reason])}>
-                {getReasonLabel(reason)}
-            </span>
-        );
-    };
+    }, []);
+
+    // ── Stats ──
+    const totalLostRevenue = orders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+    const totalPages = Math.ceil(totalCount / limit);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in">
+            {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-sm">
-                <span className="text-blue-600 hover:underline cursor-pointer">Orders</span>
+                <span className="text-blue-600 hover:underline cursor-pointer" onClick={() => navigate('/dashboard/orders')}>
+                    Orders
+                </span>
                 <span className="text-slate-400">›</span>
                 <span className="text-slate-700 font-medium">Cancellations</span>
             </div>
 
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-center gap-4">
-                    <h1 className="text-2xl font-bold text-slate-900">Cancellations</h1>
-                    <button className="flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
-                        <Play className="h-4 w-4 fill-current" />Reduce Cancellation Rate
-                    </button>
-                </div>
-                <Input placeholder="Search by Order ID or Product" value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)} icon={<Search className="h-4 w-4" />} className="w-72" />
-            </div>
-
-            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-                <div className="flex border-b border-slate-200">
-                    {[{ id: 'all', label: 'All Cancellations' }, { id: 'seller', label: 'Seller Cancelled' }, { id: 'customer', label: 'Customer Cancelled' }].map(tab => (
-                        <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                            className={cn("px-6 py-3 text-sm font-medium border-b-2 transition-colors",
-                                activeTab === tab.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-600 hover:text-slate-900"
-                            )}>{tab.label}</button>
-                    ))}
+            {/* Header */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900">Cancelled Orders</h1>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Viewing cancelled orders for{' '}
+                        <span className="font-medium text-slate-700">{activeWarehouse?.name || 'your warehouse'}</span>
+                    </p>
                 </div>
                 <div className="flex gap-3">
-                    <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2">
-                        <Store className="h-5 w-5 text-red-600" />
-                        <div><p className="text-xs text-red-600">Seller Cancelled</p><p className="text-lg font-bold text-red-900">{sellerCancelled}</p></div>
+                    <Button variant="outline" size="sm" onClick={fetchCancelledOrders} disabled={isLoading}>
+                        <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} /> Refresh
+                    </Button>
+                    <Button variant="outline" size="sm"><Download className="h-4 w-4" /> Export</Button>
+                </div>
+            </div>
+
+            {/* Error Banner */}
+            {error && (
+                <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                    <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
+                    <p className="text-sm text-red-700 flex-1">{error}</p>
+                    <Button variant="ghost" size="sm" onClick={() => setError(null)} className="text-red-600 hover:text-red-700">Dismiss</Button>
+                </div>
+            )}
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="flex items-center gap-4 rounded-xl border-2 border-red-200 bg-red-50 p-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-100">
+                        <XCircle className="h-6 w-6 text-red-600" />
                     </div>
-                    <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2">
-                        <User className="h-5 w-5 text-blue-600" />
-                        <div><p className="text-xs text-blue-600">Customer Cancelled</p><p className="text-lg font-bold text-blue-900">{customerCancelled}</p></div>
+                    <div>
+                        <span className="text-2xl font-bold text-slate-900">{isLoading ? '—' : totalCount}</span>
+                        <p className="text-sm font-medium text-red-600">Total Cancelled</p>
                     </div>
-                    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
-                        <AlertTriangle className="h-5 w-5 text-slate-600" />
-                        <div><p className="text-xs text-slate-600">Lost Revenue</p><p className="text-lg font-bold text-slate-900">₹{totalLostRevenue.toLocaleString()}</p></div>
+                </div>
+                <div className="flex items-center gap-4 rounded-xl border-2 border-amber-200 bg-amber-50 p-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-100">
+                        <AlertTriangle className="h-6 w-6 text-amber-600" />
+                    </div>
+                    <div>
+                        <span className="text-2xl font-bold text-slate-900">{isLoading ? '—' : formatCurrency(totalLostRevenue)}</span>
+                        <p className="text-sm font-medium text-amber-600">Lost Revenue</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4 rounded-xl border-2 border-slate-200 bg-slate-50 p-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100">
+                        <Package className="h-6 w-6 text-slate-500" />
+                    </div>
+                    <div>
+                        <span className="text-2xl font-bold text-slate-900">
+                            {isLoading ? '—' : orders.reduce((sum, o) => sum + (o.items?.length || 0), 0)}
+                        </span>
+                        <p className="text-sm font-medium text-slate-600">Items Affected</p>
                     </div>
                 </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <Filter className="h-5 w-5 text-slate-400" />
-                <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
-                    <option value="last7">Last 7 days</option><option value="last30">Last 30 days</option><option value="last90">Last 90 days</option>
-                </select>
-                <select className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
-                    <option>All Reasons</option><option>Out of Stock</option><option>Price Error</option><option>Customer Request</option>
-                </select>
-                <div className="flex-1" />
-                <Button variant="outline" size="sm"><Download className="h-4 w-4" />Export Report</Button>
+            {/* Search */}
+            <div className="flex-1 max-w-md">
+                <Input
+                    placeholder="Search by order ID or customer..."
+                    defaultValue={searchQuery}
+                    onChange={handleSearchChange}
+                    icon={<Search className="h-5 w-5" />}
+                />
             </div>
 
+            {/* Orders Table */}
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-slate-200 bg-slate-50">
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Order Details</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Product</th>
-                                <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Type</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Reason</th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Customer</th>
+                                <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Items</th>
                                 <th className="px-6 py-4 text-right text-sm font-semibold text-slate-900">Amount</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Cancelled On</th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredCancellations.map((c) => (
-                                <tr key={c.id} className="transition-colors hover:bg-slate-50">
-                                    <td className="px-6 py-4">
-                                        <p className="font-mono text-sm font-semibold text-blue-600">{c.orderNumber}</p>
-                                        <p className="text-xs text-slate-500 mt-1">ID: {c.id}</p>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100"><Package className="h-5 w-5 text-slate-400" /></div>
-                                            <div><p className="text-sm font-medium text-slate-900">{c.productName}</p><p className="text-xs text-slate-500">Qty: {c.quantity}</p></div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                        <Badge variant={c.cancellationType === 'seller_cancelled' ? 'rejected' : 'info'}>
-                                            {c.cancellationType === 'seller_cancelled' ? 'Seller' : 'Customer'}
-                                        </Badge>
-                                    </td>
-                                    <td className="px-6 py-4">{getReasonBadge(c.reason)}</td>
-                                    <td className="px-6 py-4 text-right font-bold text-slate-900">₹{c.orderAmount.toLocaleString()}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <Calendar className="h-4 w-4 text-slate-400" />
-                                            <div>
-                                                <p className="text-sm text-slate-700">{new Date(c.cancelledAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                                                <p className="text-xs text-slate-500">By: {c.cancelledBy}</p>
-                                            </div>
-                                        </div>
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={6} className="py-16 text-center">
+                                        <Loader2 className="mx-auto mb-3 h-8 w-8 text-blue-500 animate-spin" />
+                                        <p className="text-sm text-slate-500">Loading cancelled orders…</p>
                                     </td>
                                 </tr>
-                            ))}
+                            ) : orders.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="py-16 text-center">
+                                        <div className="mx-auto mb-4 h-24 w-24 rounded-full bg-slate-100 flex items-center justify-center">
+                                            <XCircle className="h-10 w-10 text-slate-300" />
+                                        </div>
+                                        <p className="text-lg font-medium text-slate-600">No Cancelled Orders</p>
+                                        <p className="mt-1 text-sm text-slate-400">
+                                            {searchQuery ? 'Try adjusting your search query' : 'Great news! No cancellations found.'}
+                                        </p>
+                                    </td>
+                                </tr>
+                            ) : (
+                                orders.map((order) => {
+                                    const isSchoolOrder = order.items?.some(
+                                        (item) => item.productSnapshot?.productType === 'bookset' || item.productSnapshot?.productType === 'uniform'
+                                    );
+                                    const customerName = order.shippingAddress?.recipientName || order.contactEmail || 'Customer';
+                                    const city = order.shippingAddress?.city || '';
+                                    const amount = Number(order.totalAmount || 0);
+
+                                    return (
+                                        <tr
+                                            key={order.id}
+                                            className="transition-colors hover:bg-slate-50 cursor-pointer"
+                                            onClick={() => navigate(`/dashboard/orders/${order.id}`)}
+                                        >
+                                            {/* Order Details */}
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={cn(
+                                                        "flex h-10 w-10 items-center justify-center rounded-lg",
+                                                        isSchoolOrder ? "bg-violet-100" : "bg-slate-100"
+                                                    )}>
+                                                        {isSchoolOrder
+                                                            ? <GraduationCap className="h-5 w-5 text-violet-600" />
+                                                            : <ShoppingBag className="h-5 w-5 text-slate-400" />}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-mono text-sm font-semibold text-blue-600" title={order.id}>
+                                                            {shortenOrderId(order)}
+                                                        </p>
+                                                        <p className="mt-0.5 text-xs text-slate-500">{formatDate(order.createdAt)}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            {/* Customer */}
+                                            <td className="px-6 py-4">
+                                                <p className="text-sm font-medium text-slate-900 truncate max-w-[180px]">{customerName}</p>
+                                                {city && (
+                                                    <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
+                                                        <MapPin className="h-3 w-3" /> {city}
+                                                    </div>
+                                                )}
+                                            </td>
+
+                                            {/* Items count */}
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="inline-flex items-center justify-center h-7 min-w-[28px] rounded-full bg-slate-100 px-2 text-sm font-medium text-slate-700">
+                                                    {order.items?.length || 0}
+                                                </span>
+                                            </td>
+
+                                            {/* Amount */}
+                                            <td className="px-6 py-4 text-right">
+                                                <span className="font-bold text-slate-900">{formatCurrency(amount)}</span>
+                                            </td>
+
+                                            {/* Cancelled On */}
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-2">
+                                                    <Calendar className="h-4 w-4 text-slate-400" />
+                                                    <span className="text-sm text-slate-700">{formatDate(order.updatedAt)}</span>
+                                                </div>
+                                            </td>
+
+                                            {/* Status */}
+                                            <td className="px-6 py-4">
+                                                <Badge variant="cancelled" dot>Cancelled</Badge>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
                         </tbody>
                     </table>
                 </div>
-                {filteredCancellations.length === 0 && (
-                    <div className="py-16 text-center">
-                        <div className="mx-auto mb-4 h-32 w-32 rounded-full bg-slate-100 flex items-center justify-center"><XCircle className="h-12 w-12 text-slate-300" /></div>
-                        <p className="text-lg font-medium text-slate-600">No Cancellations</p>
-                    </div>
-                )}
+
+                {/* Pagination */}
                 <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4">
                     <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <select className="rounded border border-slate-300 bg-white px-2 py-1 text-sm"><option>10</option><option>25</option></select>
+                        <select
+                            className="rounded border border-slate-300 bg-white px-2 py-1 text-sm"
+                            value={limit}
+                            onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                        >
+                            <option value={10}>10</option>
+                            <option value={25}>25</option>
+                            <option value={50}>50</option>
+                        </select>
                         <span>Items per page</span>
                     </div>
-                    <span className="text-sm text-slate-600">{filteredCancellations.length} items</span>
+                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                        <span>Page {page} of {totalPages || 1} · {totalCount} total</span>
+                        <div className="flex gap-1">
+                            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</Button>
+                            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
