@@ -8,6 +8,10 @@ export default function ImageUpload({ images = [], onChange, maxImages = 10 }) {
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Drag-to-reorder state
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
+
   const uploadFiles = useCallback(
     async (files) => {
       const remaining = maxImages - images.length;
@@ -57,7 +61,6 @@ export default function ImageUpload({ images = [], onChange, maxImages = 10 }) {
       if (e.target.files.length > 0) {
         uploadFiles(e.target.files);
       }
-      // Reset the input so the same file can be re-selected
       e.target.value = "";
     },
     [uploadFiles],
@@ -70,6 +73,49 @@ export default function ImageUpload({ images = [], onChange, maxImages = 10 }) {
     [images, onChange],
   );
 
+  // ── Drag-to-reorder handlers ──
+  const handleItemDragStart = useCallback((e, idx) => {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+    // Set a transparent drag image to avoid default ghost
+    const el = e.currentTarget;
+    e.dataTransfer.setDragImage(el, el.offsetWidth / 2, el.offsetHeight / 2);
+  }, []);
+
+  const handleItemDragOver = useCallback((e, idx) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setOverIdx(idx);
+  }, []);
+
+  const handleItemDragLeaveItem = useCallback(() => {
+    setOverIdx(null);
+  }, []);
+
+  const handleItemDrop = useCallback(
+    (e, toIdx) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (dragIdx === null || dragIdx === toIdx) {
+        setDragIdx(null);
+        setOverIdx(null);
+        return;
+      }
+      const reordered = [...images];
+      const [moved] = reordered.splice(dragIdx, 1);
+      reordered.splice(toIdx, 0, moved);
+      onChange(reordered);
+      setDragIdx(null);
+      setOverIdx(null);
+    },
+    [dragIdx, images, onChange],
+  );
+
+  const handleItemDragEnd = useCallback(() => {
+    setDragIdx(null);
+    setOverIdx(null);
+  }, []);
+
   return (
     <div className="space-y-4">
       {/* Thumbnail Grid */}
@@ -77,14 +123,32 @@ export default function ImageUpload({ images = [], onChange, maxImages = 10 }) {
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
           {images.map((url, i) => (
             <div
-              key={i}
-              className="relative aspect-square rounded-lg border border-slate-200 overflow-hidden group bg-slate-50"
+              key={`${url}-${i}`}
+              draggable
+              onDragStart={(e) => handleItemDragStart(e, i)}
+              onDragOver={(e) => handleItemDragOver(e, i)}
+              onDragLeave={handleItemDragLeaveItem}
+              onDrop={(e) => handleItemDrop(e, i)}
+              onDragEnd={handleItemDragEnd}
+              className={cn(
+                "relative aspect-square rounded-lg border overflow-hidden group bg-slate-50 cursor-grab active:cursor-grabbing transition-all duration-150",
+                dragIdx === i && "opacity-50 scale-95",
+                overIdx === i &&
+                  dragIdx !== i &&
+                  "ring-2 ring-blue-500 ring-offset-1 scale-105",
+                dragIdx === null && "border-slate-200",
+              )}
             >
               <img
                 src={url}
                 alt={`Product image ${i + 1}`}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover pointer-events-none"
               />
+              {/* Grip handle */}
+              <div className="absolute top-1.5 left-1.5 bg-black/40 text-white rounded p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <GripVertical className="h-3.5 w-3.5" />
+              </div>
+              {/* Remove button */}
               <button
                 type="button"
                 onClick={() => removeImage(i)}
@@ -133,7 +197,7 @@ export default function ImageUpload({ images = [], onChange, maxImages = 10 }) {
                 </p>
                 <p className="text-xs text-slate-400 mt-1">
                   PNG, JPG, WEBP up to 5MB each · {images.length}/{maxImages}{" "}
-                  uploaded
+                  uploaded · Drag to reorder
                 </p>
               </div>
             </div>

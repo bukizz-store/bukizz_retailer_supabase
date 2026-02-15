@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useWarehouse } from "@/context/WarehouseContext";
 import { useToast } from "@/context/ToastContext";
 import useAuthStore from "@/store/authStore";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import ImageUpload from "@/components/ui/ImageUpload";
+import MetadataField from "@/components/dashboard/inventory/MetadataField";
 import {
   Plus,
   Trash2,
@@ -21,6 +22,10 @@ import {
   Upload,
   ImageIcon,
   Type,
+  Check,
+  GripVertical,
+  GraduationCap,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -184,23 +189,62 @@ function BrandCombobox({ selected, onSelect, onAddNew, refreshKey }) {
 // ────────────────────────────────────────────────────────────────
 // Main Component
 // ────────────────────────────────────────────────────────────────
-export default function ProductDetailsForm({ category, onBack, onSuccess }) {
+const GRADE_OPTIONS = [
+  "Nursery",
+  "LKG",
+  "UKG",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+  "11",
+  "12",
+];
+
+export default function ProductDetailsForm({
+  category,
+  onBack,
+  onSuccess,
+  // School-specific props (optional)
+  schoolId = null,
+  schoolName = null,
+  schoolProductType = null,
+  prefilledCity = "",
+}) {
+  const isSchoolFlow = !!schoolId;
   const { activeWarehouse } = useWarehouse();
   const { toast } = useToast();
   const user = useAuthStore((s) => s.user);
 
   const [submitting, setSubmitting] = useState(false);
 
+  // ── School-specific State ─────────────────────────────────────
+  const [grade, setGrade] = useState("");
+  const [isMandatory, setIsMandatory] = useState(false);
+
   // ── Basic Info ────────────────────────────────────────────────
   const [formData, setFormData] = useState({
     title: "",
     sku: "",
-    city: "",
+    city: prefilledCity || "",
     basePrice: "",
     compareAtPrice: "",
     shortDescription: "",
     description: "", // RTE HTML — maps to productData.description
   });
+
+  // Auto-fill city from warehouse when in school flow
+  useEffect(() => {
+    if (prefilledCity && !formData.city) {
+      setFormData((prev) => ({ ...prev, city: prefilledCity }));
+    }
+  }, [prefilledCity]);
 
   const updateField = (field, value) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -343,7 +387,8 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
 
   const fetchCategoryAttributes = async (catId) => {
     try {
-      const data = await productService.getCategoryById(catId);
+      const resp = await productService.getCategoryById(catId);
+      const data = resp?.category || resp;
       const attrs = data?.productAttributes || [];
       setCategoryAttributes(attrs);
       // Initialize metadata keys
@@ -404,6 +449,26 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
     opts[optIdx].values = opts[optIdx].values.filter((_, i) => i !== valIdx);
     setProductOptions(opts);
   };
+
+  // Drag-to-reorder option values
+  const [dragValState, setDragValState] = useState({
+    optIdx: null,
+    fromIdx: null,
+    overIdx: null,
+  });
+
+  const reorderOptionValues = (optIdx, fromIdx, toIdx) => {
+    if (fromIdx === toIdx) return;
+    const opts = [...productOptions];
+    const vals = [...opts[optIdx].values];
+    const [moved] = vals.splice(fromIdx, 1);
+    vals.splice(toIdx, 0, moved);
+    opts[optIdx].values = vals;
+    setProductOptions(opts);
+  };
+
+  // Refs for text-option inputs (for check icon button)
+  const optionInputRefs = useRef({});
 
   // Upload-and-add for image options: uploads the file, then adds the value with the URL
   const addImageOptionValue = async (optIdx, file) => {
@@ -632,6 +697,15 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
       }
     });
 
+    // School validation
+    if (isSchoolFlow && !grade) {
+      toast({
+        title: "Grade is required for school products",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const payload = {
       replaceVariants: false,
       replaceImages: false,
@@ -640,7 +714,7 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
       productData: {
         title: formData.title,
         sku: formData.sku,
-        productType: "general",
+        productType: isSchoolFlow ? schoolProductType : "general",
         basePrice: parseFloat(formData.basePrice),
         compareAtPrice: parseFloat(formData.compareAtPrice) || null,
         shortDescription: formData.shortDescription,
@@ -694,7 +768,13 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
         ? { type: "existing", brandId: selectedBrand.id }
         : null,
       categories: [{ id: category.id }],
-      schoolData: null,
+      schoolData: isSchoolFlow
+        ? {
+            schoolId: schoolId,
+            grade: grade,
+            mandatory: isMandatory,
+          }
+        : null,
     };
 
     setSubmitting(true);
@@ -756,6 +836,8 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
                 value={formData.city}
                 onChange={(e) => updateField("city", e.target.value)}
                 placeholder="e.g. Delhi"
+                disabled={!!prefilledCity}
+                helperText={prefilledCity ? "Auto-filled from warehouse" : ""}
               />
             </div>
 
@@ -887,60 +969,40 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
         {/* ── Category Attributes (Metadata) ── */}
         {categoryAttributes.length > 0 && (
           <Card>
-            <CardHeader>
-              <CardTitle>Category Attributes</CardTitle>
+            <CardHeader className="flex-row items-center gap-3">
+              <div className="p-2 bg-blue-50 text-blue-500 rounded-lg">
+                <Layers size={20} />
+              </div>
+              <div>
+                <CardTitle>Category Attributes</CardTitle>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  Fill in the attributes required for this category
+                </p>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {categoryAttributes.map((attr) => {
-                const key = attr.name || attr.key;
-                return (
-                  <div key={key}>
-                    {attr.type === "select" && attr.options?.length > 0 ? (
-                      <div>
-                        <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                          {key}
-                          {attr.required && (
-                            <span className="ml-0.5 text-red-500">*</span>
-                          )}
-                        </label>
-                        <select
-                          value={metadata[key] || ""}
-                          onChange={(e) => updateMetadata(key, e.target.value)}
-                          className="flex h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                        >
-                          <option value="">Select {key}</option>
-                          {attr.options.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : (
-                      <Input
-                        label={key}
-                        required={attr.required}
-                        value={metadata[key] || ""}
-                        onChange={(e) => updateMetadata(key, e.target.value)}
-                        placeholder={`Enter ${key}`}
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {categoryAttributes.map((attr) => {
+                  const isGroup = attr.type === "group";
+                  return (
+                    <div
+                      key={attr.id || attr.key || attr.name}
+                      className={isGroup ? "md:col-span-2" : ""}
+                    >
+                      <MetadataField
+                        attribute={attr}
+                        value={metadata}
+                        onChange={setMetadata}
                       />
-                    )}
-                  </div>
-                );
-              })}
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
         )}
 
-        {/* ── Media ── */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Media</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ImageUpload images={images} onChange={setImages} maxImages={10} />
-          </CardContent>
-        </Card>
+        {/* Media card moved to right sidebar */}
 
         {/* ── Options & Variants ── */}
         <Card>
@@ -1004,21 +1066,77 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
                   </div>
                 </div>
 
-                {/* Values chips */}
+                {/* Values chips — draggable */}
                 <div className="flex flex-wrap gap-2 items-center mb-3">
                   {opt.values.map((valObj, valIdx) => (
                     <div
-                      key={valIdx}
-                      className="inline-flex items-center gap-1.5 bg-white border border-slate-200 rounded-full px-3 py-1 text-sm shadow-sm"
+                      key={`${valObj.value}-${valIdx}`}
+                      draggable
+                      onDragStart={() =>
+                        setDragValState({
+                          optIdx,
+                          fromIdx: valIdx,
+                          overIdx: null,
+                        })
+                      }
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragValState((prev) => ({
+                          ...prev,
+                          overIdx: valIdx,
+                        }));
+                      }}
+                      onDragLeave={() =>
+                        setDragValState((prev) => ({ ...prev, overIdx: null }))
+                      }
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (dragValState.fromIdx !== null) {
+                          reorderOptionValues(
+                            optIdx,
+                            dragValState.fromIdx,
+                            valIdx,
+                          );
+                        }
+                        setDragValState({
+                          optIdx: null,
+                          fromIdx: null,
+                          overIdx: null,
+                        });
+                      }}
+                      onDragEnd={() =>
+                        setDragValState({
+                          optIdx: null,
+                          fromIdx: null,
+                          overIdx: null,
+                        })
+                      }
+                      className={cn(
+                        "inline-flex items-center gap-1.5 bg-white border rounded-full px-3 py-1 text-sm shadow-sm cursor-grab active:cursor-grabbing transition-all duration-150",
+                        dragValState.optIdx === optIdx &&
+                          dragValState.fromIdx === valIdx &&
+                          "opacity-50 scale-95",
+                        dragValState.optIdx === optIdx &&
+                          dragValState.overIdx === valIdx &&
+                          dragValState.fromIdx !== valIdx &&
+                          "ring-2 ring-blue-500 scale-105",
+                        dragValState.optIdx !== optIdx ||
+                          dragValState.fromIdx === null
+                          ? "border-slate-200"
+                          : "",
+                      )}
                     >
+                      <GripVertical className="h-3 w-3 text-slate-300" />
                       {opt.hasImages && valObj.imageUrl && (
                         <img
                           src={valObj.imageUrl}
                           alt={valObj.value}
-                          className="h-5 w-5 rounded-full object-cover ring-1 ring-slate-200"
+                          className="h-5 w-5 rounded-full object-cover ring-1 ring-slate-200 pointer-events-none"
                         />
                       )}
-                      <span>{valObj.value}</span>
+                      <span className="pointer-events-none">
+                        {valObj.value}
+                      </span>
                       <button
                         type="button"
                         onClick={() => removeOptionValue(optIdx, valIdx)}
@@ -1082,8 +1200,11 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
                 ) : (
                   <div className="flex items-center gap-2">
                     <input
+                      ref={(el) => {
+                        optionInputRefs.current[optIdx] = el;
+                      }}
                       type="text"
-                      className="h-8 w-32 text-sm rounded-md border border-slate-200 px-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                      className="h-8 w-36 text-sm rounded-md border border-slate-200 px-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                       placeholder="Add value"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
@@ -1093,9 +1214,21 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
                         }
                       }}
                     />
-                    <span className="text-xs text-slate-400">
-                      Press Enter to add
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const input = optionInputRefs.current[optIdx];
+                        if (input && input.value.trim()) {
+                          addOptionValue(optIdx, input.value);
+                          input.value = "";
+                          input.focus();
+                        }
+                      }}
+                      className="h-8 w-8 flex items-center justify-center rounded-md bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                      title="Add value"
+                    >
+                      <Check className="h-4 w-4" />
+                    </button>
                   </div>
                 )}
               </div>
@@ -1227,6 +1360,117 @@ export default function ProductDetailsForm({ category, onBack, onSuccess }) {
       {/* ════════════ RIGHT COLUMN (SIDEBAR) ════════════ */}
       <div className="lg:col-span-1">
         <div className="sticky top-6 space-y-6">
+          {/* ── School Info Card (only in school flow) ── */}
+          {isSchoolFlow && (
+            <Card>
+              <CardHeader className="flex-row items-center gap-3">
+                <div className="p-2 bg-violet-50 text-violet-600 rounded-lg">
+                  <GraduationCap size={20} />
+                </div>
+                <div>
+                  <CardTitle>School Product</CardTitle>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    Linked to school
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* School Name (read-only) */}
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-500">
+                    School
+                  </label>
+                  <div className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800">
+                    <GraduationCap className="h-4 w-4 text-violet-500 shrink-0" />
+                    {schoolName}
+                  </div>
+                </div>
+
+                {/* Product Type (read-only) */}
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-500">
+                    Product Type
+                  </label>
+                  <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800 capitalize">
+                    {schoolProductType}
+                  </div>
+                </div>
+
+                {/* City (read-only) */}
+                {prefilledCity && (
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-500">
+                      City
+                    </label>
+                    <div className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800">
+                      <MapPin className="h-4 w-4 text-blue-500 shrink-0" />
+                      {prefilledCity}
+                    </div>
+                  </div>
+                )}
+
+                {/* Grade Selector */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Grade <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value)}
+                    className="flex h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm transition-all hover:border-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="">Select Grade</option>
+                    {GRADE_OPTIONS.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Mandatory Toggle */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">
+                      Mandatory
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Is this product mandatory for the school?
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsMandatory(!isMandatory)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                      isMandatory ? "bg-blue-600" : "bg-slate-200",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform",
+                        isMandatory ? "translate-x-5" : "translate-x-0",
+                      )}
+                    />
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {/* ── Media (moved here) ── */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Media</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ImageUpload
+                images={images}
+                onChange={setImages}
+                maxImages={10}
+              />
+            </CardContent>
+          </Card>
+
           {/* Status Card */}
           <Card>
             <CardHeader>
