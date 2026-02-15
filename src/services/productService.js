@@ -79,6 +79,16 @@ export const productService = {
     return response.data;
   },
 
+  getProductById: async (id) => {
+    const response = await apiClient.get(`/products/${id}`);
+    return response.data;
+  },
+
+  deleteProduct: async (id) => {
+    const response = await apiClient.delete(`/products/${id}`);
+    return response.data;
+  },
+
   /**
    * Update stock for a single variant.
    * @param {string}  variantId  – UUID of the variant

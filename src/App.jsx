@@ -14,7 +14,7 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
-import PendingApprovalPage from './pages/PendingApprovalPage';
+import PendingApprovalPage from "./pages/PendingApprovalPage";
 
 // Layouts
 import DashboardLayout from "./layouts/DashboardLayout";
@@ -28,6 +28,7 @@ import AddProductPage from "./pages/dashboard/inventory/AddProductPage";
 import InventoryHealthPage from "./pages/dashboard/inventory/InventoryHealthPage";
 import MySchoolsPage from "./pages/dashboard/inventory/MySchoolsPage";
 import SchoolProductManagementPage from "./pages/dashboard/inventory/SchoolProductManagementPage";
+import ProductDetailPage from "./pages/dashboard/inventory/ProductDetailPage";
 import ActiveOrdersPage from "./pages/dashboard/orders/ActiveOrdersPage";
 import OrderViewPage from "./pages/dashboard/orders/OrderViewPage";
 import CancelledOrdersPage from "./pages/dashboard/orders/CancelledOrdersPage";
@@ -75,7 +76,7 @@ export default function App() {
           }
         />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/pending-approval" element={<PendingApprovalPage />} />
+        <Route path="/pending-approval" element={<PendingApprovalPage />} />
 
         {/* Protected (redirect to login if not authenticated) */}
         <Route
@@ -93,6 +94,7 @@ export default function App() {
           <Route path="inventory/general" element={<GeneralStoreLayout />}>
             <Route index element={<GeneralStorePage />} />
             <Route path="add" element={<AddProductPage />} />
+            <Route path=":productId" element={<ProductDetailPage />} />
           </Route>
           <Route path="inventory/health" element={<InventoryHealthPage />} />
           <Route path="inventory/schools" element={<MySchoolsPage />} />
