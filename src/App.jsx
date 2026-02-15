@@ -29,9 +29,12 @@ import InventoryHealthPage from "./pages/dashboard/inventory/InventoryHealthPage
 import MySchoolsPage from "./pages/dashboard/inventory/MySchoolsPage";
 import SchoolProductManagementPage from "./pages/dashboard/inventory/SchoolProductManagementPage";
 import ActiveOrdersPage from "./pages/dashboard/orders/ActiveOrdersPage";
+import OrderViewPage from "./pages/dashboard/orders/OrderViewPage";
 import CancelledOrdersPage from "./pages/dashboard/orders/CancelledOrdersPage";
 import ReturnsPage from "./pages/dashboard/orders/ReturnsPage";
 import WarehouseManagementPage from "./pages/dashboard/settings/WarehouseManagementPage";
+import ProfileSettingsPage from "./pages/dashboard/settings/ProfileSettingsPage";
+import NotificationsPage from "./pages/dashboard/NotificationsPage";
 
 export default function App() {
   const initialize = useAuthStore((state) => state.initialize);
@@ -99,12 +102,18 @@ export default function App() {
           />
           <Route path="orders" element={<OrdersLayout />}>
             <Route index element={<ActiveOrdersPage />} />
+            <Route path=":orderId" element={<OrderViewPage />} />
             <Route path="cancelled" element={<CancelledOrdersPage />} />
             <Route path="returns" element={<ReturnsPage />} />
           </Route>
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route
             path="settings/warehouses"
             element={<WarehouseManagementPage />}
+          />
+          <Route
+            path="settings/profile"
+            element={<ProfileSettingsPage />}
           />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

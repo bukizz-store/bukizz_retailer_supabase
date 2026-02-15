@@ -1,7 +1,13 @@
 import apiClient from "@/lib/apiClient";
 
 export const productService = {
-  getProducts: async ({
+  /**
+   * Fetch products for a specific warehouse.
+   * The warehouse ID is sent via the `x-warehouse-id` header (auto-attached
+   * by apiClient interceptor). You can also pass it explicitly to override.
+   */
+  getProductsByWarehouseId: async ({
+    warehouseId,
     page = 1,
     limit = 10,
     search = "",
@@ -13,7 +19,15 @@ export const productService = {
     if (categoryId && categoryId !== "all") params.categoryId = categoryId;
     if (status) params.status = status;
 
-    const response = await apiClient.get("/products/warehouse", { params });
+    const headers = {};
+    if (warehouseId) {
+      headers["x-warehouse-id"] = warehouseId;
+    }
+
+    const response = await apiClient.get("/products/warehouse", {
+      params,
+      ...(warehouseId && { headers }),
+    });
     return response.data;
   },
 
@@ -62,6 +76,34 @@ export const productService = {
 
   createBrand: async (brandData) => {
     const response = await apiClient.post("/brands", brandData);
+    return response.data;
+  },
+
+  /**
+   * Update stock for a single variant.
+   * @param {string}  variantId  – UUID of the variant
+   * @param {number}  quantity   – stock quantity value
+   * @param {string}  operation  – "set" | "increment" | "decrement"
+   */
+  updateVariantStock: async (variantId, { quantity, operation = "set" }) => {
+    console.log('[updateVariantStock] variantId:', variantId, 'quantity:', quantity, 'operation:', operation);
+    const response = await apiClient.patch(
+      `/products/variants/${variantId}/stock`,
+      { quantity, operation },
+    );
+    return response.data;
+  },
+
+  /**
+   * Bulk-update stock for multiple variants at once.
+   * @param {Array<{ variantId: string, quantity: number, operation: string }>} updates
+   */
+  bulkUpdateVariantStock: async (updates) => {
+    console.log('[bulkUpdateVariantStock] updates:', JSON.stringify(updates, null, 2));
+    const response = await apiClient.put(
+      "/products/variants/bulk-stock",
+      { updates },
+    );
     return response.data;
   },
 };

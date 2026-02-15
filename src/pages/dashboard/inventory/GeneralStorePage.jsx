@@ -16,6 +16,7 @@ import {
   Eye,
   Loader2,
 } from "lucide-react";
+import StockUpdateModal from "@/components/dashboard/inventory/StockUpdateModal";
 
 const categories = [
   { id: "all", label: "All Products", icon: "📦" },
@@ -45,6 +46,9 @@ export default function GeneralStorePage() {
     status: "",
   });
 
+  // Stock update modal
+  const [stockEditProduct, setStockEditProduct] = useState(null);
+
   // Debounce search
   const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
@@ -55,11 +59,12 @@ export default function GeneralStorePage() {
   }, [filters.search]);
 
   const fetchProducts = useCallback(async () => {
-    if (!activeWarehouse) return;
+    if (!activeWarehouse?.id) return;
 
     setLoading(true);
     try {
-      const response = await productService.getProducts({
+      const response = await productService.getProductsByWarehouseId({
+        warehouseId: activeWarehouse.id,
         page: pagination.page,
         limit: pagination.limit,
         search: debouncedSearch,
@@ -227,7 +232,7 @@ export default function GeneralStorePage() {
                 products.map((product) => (
                   <tr
                     key={product.id}
-                    className="transition-colors hover:bg-slate-50"
+                    className="group transition-colors hover:bg-slate-50"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -262,15 +267,18 @@ export default function GeneralStorePage() {
                       </div>
                     </td>
                     <td className="hidden px-6 py-4 text-right sm:table-cell">
-                      <span
-                        className={`font-medium ${
+                      <button
+                        onClick={() => setStockEditProduct(product)}
+                        className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-medium transition-colors hover:bg-blue-50 hover:text-blue-700 cursor-pointer ${
                           product.stock < 20
                             ? "text-amber-600"
                             : "text-slate-900"
                         }`}
+                        title="Click to update stock"
                       >
                         {product.stock}
-                      </span>
+                        <Edit className="h-3 w-3 opacity-0 group-hover:opacity-100 text-slate-400" />
+                      </button>
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant="live" dot>
@@ -335,6 +343,16 @@ export default function GeneralStorePage() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Stock Update Modal */}
+      {stockEditProduct && (
+        <StockUpdateModal
+          product={stockEditProduct}
+          onClose={() => setStockEditProduct(null)}
+          onUpdated={fetchProducts}
+          toast={toast}
+        />
       )}
     </div>
   );

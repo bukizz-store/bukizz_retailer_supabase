@@ -21,6 +21,9 @@ import {
   ClipboardList,
   RotateCcw,
   XCircle,
+  UserCog,
+  Warehouse,
+  ChevronRight,
 } from "lucide-react";
 import WarehouseSwitcher from "@/components/dashboard/WarehouseSwitcher";
 
@@ -34,7 +37,6 @@ const navItems = [
     label: "My Schools",
     href: "/dashboard/inventory/schools",
     icon: GraduationCap,
-    badge: 2,
   },
   {
     label: "General Store",
@@ -62,13 +64,11 @@ const navItems = [
     label: "Inventory Health",
     href: "/dashboard/inventory/health",
     icon: BarChart3,
-    badge: 3,
   },
   {
     label: "Orders",
     href: "/dashboard/orders",
     icon: ShoppingCart,
-    badge: 4,
     subItems: [
       {
         label: "Active Orders",
@@ -91,12 +91,23 @@ const navItems = [
     label: "Notifications",
     href: "/dashboard/notifications",
     icon: Bell,
-    badge: 3,
   },
   {
     label: "Settings",
     href: "/dashboard/settings",
     icon: Settings,
+    subItems: [
+      {
+        label: "My Profile",
+        href: "/dashboard/settings/profile",
+        icon: UserCog,
+      },
+      {
+        label: "Warehouses",
+        href: "/dashboard/settings/warehouses",
+        icon: Warehouse,
+      },
+    ],
   },
 ];
 
@@ -163,17 +174,13 @@ function NavItem({ item, pathname }) {
           )}
         />
         <span className="flex-1">{item.label}</span>
-        {item.badge && (
-          <span
+        {hasSubItems && (
+          <ChevronRight
             className={cn(
-              "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold",
-              isActive
-                ? "bg-blue-600 text-white"
-                : "bg-amber-50 text-amber-600 border border-amber-200",
+              "h-4 w-4 flex-shrink-0 transition-transform duration-200",
+              isActive ? "text-blue-500" : "text-slate-400",
             )}
-          >
-            {item.badge}
-          </span>
+          />
         )}
       </Link>
 
@@ -324,10 +331,10 @@ export default function DashboardLayout() {
             <button className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
               <HelpCircle className="h-5 w-5" />
             </button>
-            <button className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+            <Link to="/dashboard/notifications" className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
               <Bell className="h-5 w-5" />
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
-            </button>
+            </Link>
             <div className="hidden sm:flex items-center gap-2 ml-2 rounded-lg border border-slate-200 px-3 py-1.5">
               <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-xs font-bold text-white">
                 {initials}
