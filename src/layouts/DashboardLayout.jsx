@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import useAuthStore from "@/store/authStore";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
-  Package,
   ShoppingCart,
   GraduationCap,
   Settings,
@@ -12,14 +12,15 @@ import {
   Bell,
   Search,
   Menu,
-  X,
-  ChevronDown,
-  ChevronRight,
-  TrendingUp,
-  AlertTriangle,
+  BarChart3,
   LogOut,
-  User,
   Store,
+  List,
+  PlusCircle,
+  CheckCircle2,
+  ClipboardList,
+  RotateCcw,
+  XCircle,
 } from "lucide-react";
 import WarehouseSwitcher from "@/components/dashboard/WarehouseSwitcher";
 
@@ -27,137 +28,194 @@ const navItems = [
   {
     label: "Overview",
     href: "/dashboard/overview",
-    icon: <LayoutDashboard className="h-5 w-5" />,
+    icon: LayoutDashboard,
   },
   {
-    label: "Inventory",
-    href: "/dashboard/inventory",
-    icon: <Package className="h-5 w-5" />,
+    label: "My Schools",
+    href: "/dashboard/inventory/schools",
+    icon: GraduationCap,
+    badge: 2,
+  },
+  {
+    label: "General Store",
+    href: "/dashboard/inventory/general",
+    icon: Store,
     subItems: [
       {
-        label: "General Store",
+        label: "My Products",
         href: "/dashboard/inventory/general",
-        icon: <Store className="h-4 w-4" />,
+        icon: List,
       },
       {
-        label: "Inventory Health",
-        href: "/dashboard/inventory/health",
-        icon: <TrendingUp className="h-4 w-4" />,
+        label: "Add Product",
+        href: "/dashboard/inventory/general/add",
+        icon: PlusCircle,
       },
       {
-        label: "My Schools",
-        href: "/dashboard/inventory/schools",
-        icon: <GraduationCap className="h-4 w-4" />,
+        label: "Track Approvals",
+        href: "/dashboard/inventory/general/approvals",
+        icon: CheckCircle2,
       },
     ],
+  },
+  {
+    label: "Inventory Health",
+    href: "/dashboard/inventory/health",
+    icon: BarChart3,
+    badge: 3,
   },
   {
     label: "Orders",
     href: "/dashboard/orders",
-    icon: <ShoppingCart className="h-5 w-5" />,
-    badge: 3,
+    icon: ShoppingCart,
+    badge: 4,
     subItems: [
-      { label: "Active Orders", href: "/dashboard/orders" },
-      { label: "Cancelled", href: "/dashboard/orders/cancelled" },
-      { label: "Returns", href: "/dashboard/orders/returns" },
+      {
+        label: "Active Orders",
+        href: "/dashboard/orders",
+        icon: ClipboardList,
+      },
+      {
+        label: "Returns",
+        href: "/dashboard/orders/returns",
+        icon: RotateCcw,
+      },
+      {
+        label: "Cancellations",
+        href: "/dashboard/orders/cancelled",
+        icon: XCircle,
+      },
     ],
+  },
+  {
+    label: "Notifications",
+    href: "/dashboard/notifications",
+    icon: Bell,
+    badge: 3,
   },
   {
     label: "Settings",
     href: "/dashboard/settings",
-    icon: <Settings className="h-5 w-5" />,
+    icon: Settings,
   },
 ];
 
 function NavItem({ item, pathname }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
+  const timeoutRef = useRef(null);
   const isActive =
     pathname === item.href || pathname.startsWith(item.href + "/");
   const hasSubItems = item.subItems && item.subItems.length > 0;
 
-  React.useEffect(() => {
-    if (hasSubItems && isActive) {
-      setIsOpen(true);
+  const updatePosition = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPopoverPos({
+        top: rect.top,
+        left: rect.right + 8,
+      });
     }
   }, []);
 
-  if (hasSubItems) {
-    return (
-      <div className="relative">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={cn(
-            "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-            isActive
-              ? "bg-blue-50 text-blue-700"
-              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-          )}
-        >
-          <span className={cn(isActive ? "text-blue-600" : "text-slate-400")}>
-            {item.icon}
-          </span>
-          <span className="flex-1 text-left">{item.label}</span>
-          {item.badge && (
-            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
-              {item.badge}
-            </span>
-          )}
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 transition-transform",
-              isOpen && "rotate-180",
-            )}
-          />
-        </button>
-        {isOpen && (
-          <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-200 pl-4">
-            {item.subItems.map((subItem) => {
-              const isSubActive = pathname === subItem.href;
-              return (
-                <Link
-                  key={subItem.href}
-                  to={subItem.href}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
-                    isSubActive
-                      ? "bg-blue-50 text-blue-700 font-medium"
-                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
-                  )}
-                >
-                  {subItem.icon && (
-                    <span
-                      className={cn(
-                        isSubActive ? "text-blue-600" : "text-slate-400",
-                      )}
-                    >
-                      {subItem.icon}
-                    </span>
-                  )}
-                  {subItem.label}
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  }
+  const handleMouseEnter = () => {
+    if (hasSubItems) {
+      clearTimeout(timeoutRef.current);
+      updatePosition();
+      setHovered(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (hasSubItems) {
+      timeoutRef.current = setTimeout(() => setHovered(false), 150);
+    }
+  };
+
+  const handlePopoverEnter = () => {
+    clearTimeout(timeoutRef.current);
+  };
+
+  const handlePopoverLeave = () => {
+    timeoutRef.current = setTimeout(() => setHovered(false), 150);
+  };
 
   return (
-    <Link
-      to={item.href}
-      className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-        isActive
-          ? "bg-blue-50 text-blue-700"
-          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-      )}
+    <div
+      ref={triggerRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
-      <span className={cn(isActive ? "text-blue-600" : "text-slate-400")}>
-        {item.icon}
-      </span>
-      {item.label}
-    </Link>
+      <Link
+        to={hasSubItems ? item.subItems[0].href : item.href}
+        className={cn(
+          "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-medium transition-all duration-200",
+          isActive
+            ? "bg-blue-50 text-blue-700"
+            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
+        )}
+      >
+        <item.icon
+          className={cn(
+            "h-5 w-5 flex-shrink-0",
+            isActive ? "text-blue-600" : "text-slate-400",
+          )}
+        />
+        <span className="flex-1">{item.label}</span>
+        {item.badge && (
+          <span
+            className={cn(
+              "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold",
+              isActive
+                ? "bg-blue-600 text-white"
+                : "bg-amber-50 text-amber-600 border border-amber-200",
+            )}
+          >
+            {item.badge}
+          </span>
+        )}
+      </Link>
+
+      {/* Hover popover submenu — rendered via portal so it's never clipped */}
+      {hasSubItems &&
+        hovered &&
+        createPortal(
+          <div
+            className="fixed z-[9999]"
+            style={{ top: popoverPos.top, left: popoverPos.left }}
+            onMouseEnter={handlePopoverEnter}
+            onMouseLeave={handlePopoverLeave}
+          >
+            <div className="w-48 rounded-xl border border-slate-200 bg-white py-2 shadow-lg">
+              {item.subItems.map((subItem) => {
+                const isSubActive = pathname === subItem.href;
+                return (
+                  <Link
+                    key={subItem.href}
+                    to={subItem.href}
+                    className={cn(
+                      "flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors",
+                      isSubActive
+                        ? "bg-blue-50 text-blue-700 font-medium"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                    )}
+                  >
+                    <subItem.icon
+                      className={cn(
+                        "h-4 w-4 flex-shrink-0",
+                        isSubActive ? "text-blue-600" : "text-slate-400",
+                      )}
+                    />
+                    {subItem.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>,
+          document.body,
+        )}
+    </div>
   );
 }
 
@@ -201,20 +259,17 @@ export default function DashboardLayout() {
         )}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 font-bold text-white text-lg">
-            B
+        <div className="flex h-16 items-center gap-3 px-6">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600">
+            <GraduationCap className="h-5 w-5 text-white" />
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-slate-900">Bukizz</h1>
-            <p className="text-xs text-slate-500">Vendor Portal</p>
-          </div>
+          <h1 className="text-xl font-bold text-slate-900">Bukizz</h1>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+        <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
           {navItems.map((item) => (
-            <NavItem key={item.href} item={item} pathname={pathname} />
+            <NavItem key={item.label} item={item} pathname={pathname} />
           ))}
         </nav>
 
