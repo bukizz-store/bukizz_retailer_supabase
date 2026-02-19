@@ -155,7 +155,7 @@ const WarehouseManagementPage = () => {
               <tr>
                 <th className="px-6 py-3 font-medium">Name</th>
                 <th className="px-6 py-3 font-medium">Contact</th>
-                <th className="px-6 py-3 font-medium">ID</th>
+                <th className="px-6 py-3 font-medium">Address</th>
                 <th className="px-6 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
@@ -198,8 +198,14 @@ const WarehouseManagementPage = () => {
                       <div>{warehouse.contact_email}</div>
                       <div>{warehouse.contact_phone}</div>
                     </td>
-                    <td className="px-6 py-4 text-slate-500 font-mono text-xs">
-                      {warehouse.id}
+                    <td className="px-6 py-4 text-slate-500 text-xs max-w-xs truncate">
+                      {warehouse.address
+                        ? `${warehouse.address.line1 || ""}, ${
+                            warehouse.address.city || ""
+                          }, ${warehouse.address.state || ""} - ${
+                            warehouse.address.postal_code || ""
+                          }`.replace(/^, |, ,| - $/g, "")
+                        : "No address provided"}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
