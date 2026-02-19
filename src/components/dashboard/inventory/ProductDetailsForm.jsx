@@ -228,23 +228,31 @@ export default function ProductDetailsForm({
   const [grade, setGrade] = useState("");
   const [isMandatory, setIsMandatory] = useState(false);
 
+  // Derive city to use: prefilled (school) > warehouse address (general) > empty
+  const cityToUse =
+    prefilledCity ||
+    activeWarehouse?.city ||
+    activeWarehouse?.address?.city ||
+    activeWarehouse?.address ||
+    "";
+
   // ── Basic Info ────────────────────────────────────────────────
   const [formData, setFormData] = useState({
     title: "",
     sku: "",
-    city: prefilledCity || "",
+    city: cityToUse || "",
     basePrice: "",
     compareAtPrice: "",
     shortDescription: "",
     description: "", // RTE HTML — maps to productData.description
   });
 
-  // Auto-fill city from warehouse when in school flow
+  // Auto-fill city on mount if available
   useEffect(() => {
-    if (prefilledCity && !formData.city) {
-      setFormData((prev) => ({ ...prev, city: prefilledCity }));
+    if (cityToUse && !formData.city) {
+      setFormData((prev) => ({ ...prev, city: cityToUse }));
     }
-  }, [prefilledCity]);
+  }, [cityToUse]);
 
   const updateField = (field, value) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -596,14 +604,17 @@ export default function ProductDetailsForm({
   const updateVariantPrice = (idx, newPrice) => {
     setVariants((prev) => {
       const v = [...prev];
-      const price = parseFloat(newPrice) || 0;
+      const price = parseFloat(newPrice);
+      const validPrice = isNaN(price) ? 0 : price;
+
       const compareAt = v[idx].compareAtPrice || 0;
+
       v[idx] = {
         ...v[idx],
-        price,
+        price: validPrice, // allow typing incomplete numbers
         discount:
           compareAt > 0
-            ? Math.round(((compareAt - price) / compareAt) * 100)
+            ? Math.round(((compareAt - validPrice) / compareAt) * 100)
             : 0,
       };
       return v;
@@ -613,12 +624,17 @@ export default function ProductDetailsForm({
   const updateVariantDiscount = (idx, newDiscount) => {
     setVariants((prev) => {
       const v = [...prev];
-      const discount = parseFloat(newDiscount) || 0;
+      const discount = parseFloat(newDiscount);
+      const validDiscount = isNaN(discount) ? 0 : discount;
+
       const compareAt = v[idx].compareAtPrice || 0;
-      const price = compareAt > 0 ? compareAt * (1 - discount / 100) : 0;
+      // Formula: Price = CompareAt * (1 - Discount/100)
+      const price =
+        compareAt > 0 ? compareAt * (1 - validDiscount / 100) : v[idx].price;
+
       v[idx] = {
         ...v[idx],
-        discount,
+        discount: validDiscount, // allow typing incomplete numbers
         price: Math.round(price * 100) / 100,
       };
       return v;
@@ -628,14 +644,16 @@ export default function ProductDetailsForm({
   const updateVariantCompareAt = (idx, val) => {
     setVariants((prev) => {
       const v = [...prev];
-      const compareAt = parseFloat(val) || 0;
-      const price = v[idx].price;
+      const compareAt = parseFloat(val);
+      const validCompareAt = isNaN(compareAt) ? 0 : compareAt;
+      const price = v[idx].price || 0;
+
       v[idx] = {
         ...v[idx],
-        compareAtPrice: compareAt,
+        compareAtPrice: validCompareAt,
         discount:
-          compareAt > 0
-            ? Math.round(((compareAt - price) / compareAt) * 100)
+          validCompareAt > 0
+            ? Math.round(((validCompareAt - price) / validCompareAt) * 100)
             : 0,
       };
       return v;
@@ -658,6 +676,17 @@ export default function ProductDetailsForm({
     }
     if (!formData.basePrice) {
       toast({ title: "Base price is required", variant: "destructive" });
+      return;
+    }
+    if (images.length === 0) {
+      toast({
+        title: "At least one image is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!category) {
+      toast({ title: "Category is required", variant: "destructive" });
       return;
     }
     if (!activeWarehouse) {
@@ -726,7 +755,7 @@ export default function ProductDetailsForm({
           categoryAttributes: categoryAttrsObj,
           compare_price: comparePriceMeta,
         },
-        isActive: true,
+        isActive: false,
       },
 
       productOptions: productOptions
@@ -836,8 +865,8 @@ export default function ProductDetailsForm({
                 value={formData.city}
                 onChange={(e) => updateField("city", e.target.value)}
                 placeholder="e.g. Delhi"
-                disabled={!!prefilledCity}
-                helperText={prefilledCity ? "Auto-filled from warehouse" : ""}
+                disabled={!!cityToUse}
+                helperText={cityToUse ? "Auto-filled from warehouse" : ""}
               />
             </div>
 
@@ -928,31 +957,40 @@ export default function ProductDetailsForm({
               <div className="space-y-3">
                 {highlights.map((h, idx) => (
                   <div key={idx} className="flex items-start gap-3">
-                    <Input
-                      placeholder="Key (max 15)"
-                      value={h.key}
-                      onChange={(e) =>
-                        updateHighlight(idx, "key", e.target.value.slice(0, 15))
-                      }
-                      className="max-w-[160px]"
-                    />
-                    <Input
-                      placeholder="Value (max 40)"
-                      value={h.value}
-                      onChange={(e) =>
-                        updateHighlight(
-                          idx,
-                          "value",
-                          e.target.value.slice(0, 40),
-                        )
-                      }
-                    />
+                    <div className="w-[160px]">
+                      <Input
+                        floatingLabel
+                        label="Key"
+                        value={h.key}
+                        onChange={(e) =>
+                          updateHighlight(
+                            idx,
+                            "key",
+                            e.target.value.slice(0, 15),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Input
+                        floatingLabel
+                        label="Value"
+                        value={h.value}
+                        onChange={(e) =>
+                          updateHighlight(
+                            idx,
+                            "value",
+                            e.target.value.slice(0, 40),
+                          )
+                        }
+                      />
+                    </div>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       onClick={() => removeHighlight(idx)}
-                      className="text-red-500 hover:text-red-700 shrink-0"
+                      className="text-red-500 hover:text-red-700 shrink-0 mt-1"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -1035,36 +1073,40 @@ export default function ProductDetailsForm({
               <div
                 key={opt.id}
                 className={cn(
-                  "p-4 rounded-lg border",
+                  "p-4 rounded-lg border relative",
                   opt.hasImages
                     ? "bg-blue-50/50 border-blue-200"
                     : "bg-slate-50 border-slate-200",
                 )}
               >
                 <div className="flex items-center gap-3 mb-3">
-                  <Input
-                    placeholder={`Option ${optIdx + 1} name (e.g. ${opt.hasImages ? "Color" : "Size"})`}
-                    className="max-w-[200px]"
-                    value={opt.name}
-                    onChange={(e) => updateOptionName(optIdx, e.target.value)}
-                  />
+                  <div className="w-[200px]">
+                    <Input
+                      floatingLabel
+                      label={`Option ${optIdx + 1} name`}
+                      value={opt.name}
+                      onChange={(e) => updateOptionName(optIdx, e.target.value)}
+                    />
+                  </div>
                   <div className="flex items-center gap-1.5">
                     {opt.hasImages && (
                       <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
                         With Images
                       </span>
                     )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeOption(optIdx)}
-                      className="text-red-500 hover:text-red-700 opacity-0 group-hover/option:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeOption(optIdx)}
+                  className="absolute top-2 right-2 text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                  title="Remove Option"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
 
                 {/* Values chips — draggable */}
                 <div className="flex flex-wrap gap-2 items-center mb-3">
