@@ -15,6 +15,9 @@ import RegisterPage from "./pages/RegisterPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import PendingApprovalPage from "./pages/PendingApprovalPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsOfServicePage from "./pages/TermsOfServicePage";
+import SellerPolicyPage from "./pages/SellerPolicyPage";
 
 // Layouts
 import DashboardLayout from "./layouts/DashboardLayout";
@@ -78,6 +81,9 @@ export default function App() {
         />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/pending-approval" element={<PendingApprovalPage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+        <Route path="/seller-policy" element={<SellerPolicyPage />} />
 
         {/* Protected (redirect to login if not authenticated) */}
         <Route
@@ -90,7 +96,10 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="overview" replace />} />
+          <Route
+            path=""
+            element={<Navigate to="/dashboard/overview" replace />}
+          />
           <Route path="overview" element={<Overview />} />
           <Route path="inventory/general" element={<GeneralStoreLayout />}>
             <Route index element={<GeneralStorePage />} />
@@ -118,10 +127,7 @@ export default function App() {
             path="settings/warehouses"
             element={<WarehouseManagementPage />}
           />
-          <Route
-            path="settings/profile"
-            element={<ProfileSettingsPage />}
-          />
+          <Route path="settings/profile" element={<ProfileSettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

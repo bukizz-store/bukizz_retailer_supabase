@@ -267,10 +267,7 @@ export default function DashboardLayout() {
       >
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600">
-            <GraduationCap className="h-5 w-5 text-white" />
-          </div>
-          <h1 className="text-xl font-bold text-slate-900">Bukizz</h1>
+          <img src="/logo.svg" alt="Bukizz Logo" className="h-9 w-auto" />
         </div>
 
         {/* Navigation */}
@@ -328,10 +325,13 @@ export default function DashboardLayout() {
 
           <div className="flex items-center gap-2 ml-auto">
             <WarehouseSwitcher />
-            <button className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+            {/* <button className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
               <HelpCircle className="h-5 w-5" />
-            </button>
-            <Link to="/dashboard/notifications" className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+            </button> */}
+            <Link
+              to="/dashboard/notifications"
+              className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            >
               <Bell className="h-5 w-5" />
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
             </Link>
