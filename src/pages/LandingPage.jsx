@@ -16,11 +16,11 @@ import {
 } from "lucide-react";
 
 const benefits = [
-  {
-    icon: GraduationCap,
-    title: "Sell Across India",
-    description: "Reach over 50 crore+ customers across 27000+ pincodes",
-  },
+  // {
+  //   icon: GraduationCap,
+  //   title: "Sell Across India",
+  //   description: "Reach over 50 crore+ customers across 27000+ pincodes",
+  // },
   {
     icon: Calculator,
     title: "Higher Profits",
@@ -31,18 +31,18 @@ const benefits = [
     title: "Account Management",
     description: "Our Dedicated managers will help your business on Bukizz",
   },
-  {
-    icon: Truck,
-    title: "Lower Return Charges",
-    description:
-      "With our flat and low return charges, ship your products stress-free",
-  },
-  {
-    icon: Calculator,
-    title: "Simple Pricing Calculator",
-    description:
-      "Use our simple pricing calculator to decide the best and competitive selling price for your product",
-  },
+  // {
+  //   icon: Truck,
+  //   title: "Lower Return Charges",
+  //   description:
+  //     "With our flat and low return charges, ship your products stress-free",
+  // },
+  // {
+  //   icon: Calculator,
+  //   title: "Simple Pricing Calculator",
+  //   description:
+  //     "Use our simple pricing calculator to decide the best and competitive selling price for your product",
+  // },
   {
     icon: HeadphonesIcon,
     title: "24×7 Seller Support",
@@ -54,12 +54,12 @@ const benefits = [
     title: "Fast & Regular Payments",
     description: "Get payments as fast as 7-10 days from the date of dispatch",
   },
-  {
-    icon: Smartphone,
-    title: "Business on the go",
-    description:
-      "Download our Bukizz Seller App to manage your business anywhere, anytime",
-  },
+  // {
+  //   icon: Smartphone,
+  //   title: "Business on the go",
+  //   description:
+  //     "Download our Bukizz Seller App to manage your business anywhere, anytime",
+  // },
 ];
 
 export default function LandingPage() {
@@ -94,7 +94,7 @@ export default function LandingPage() {
             <div className="bg-white rounded-xl shadow-lg p-8">
               <div className="flex items-center gap-2 text-sm text-[#878787] mb-4">
                 <span className="text-[#26A541] font-medium">
-                  Trusted by 500+ vendors across India
+                  Trusted by many vendors across India
                 </span>
               </div>
               <h1 className="text-3xl font-bold text-[#212121] mb-4">
@@ -106,7 +106,7 @@ export default function LandingPage() {
                 looking for quality school supplies.
               </p>
 
-              <div className="space-y-4">
+              {/* <div className="space-y-4">
                 <div className="flex gap-4">
                   <input
                     type="tel"
@@ -119,7 +119,7 @@ export default function LandingPage() {
                   Please verify your mobile number through OTP before you
                   register
                 </p>
-              </div>
+              </div> */}
 
               <div className="mt-6 flex gap-4">
                 <Link to="/register" className="flex-1">
@@ -150,7 +150,7 @@ export default function LandingPage() {
                       categories with 5x growth year on year!&quot;
                     </p>
                     <p className="text-sm text-[#878787]">
-                      Raju Lunawath, Amazestore
+                      Shivam Varshney, Gurugram
                     </p>
                   </div>
                 </div>
@@ -172,7 +172,7 @@ export default function LandingPage() {
                 <p className="text-sm text-white/80 mb-4">
                   Sell everything with pride on Bukizz
                 </p>
-                <div className="flex gap-4 text-sm">
+                {/* <div className="flex gap-4 text-sm">
                   <div>
                     <span className="font-bold">50 Crore+</span>
                     <p className="text-white/70">Customers</p>
@@ -185,7 +185,7 @@ export default function LandingPage() {
                     <span className="font-bold">14 Lakh+</span>
                     <p className="text-white/70">Sellers</p>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
           </div>
@@ -303,29 +303,30 @@ export default function LandingPage() {
                     Login
                   </Link>
                 </li>
-                <li>
+                {/* <li>
                   <a href="#" className="hover:text-white">
                     Pricing
                   </a>
-                </li>
+                </li> */}
               </ul>
             </div>
             <div>
               <h4 className="font-semibold mb-4">Support</h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li>
-                  <a href="#" className="hover:text-white">
-                    Help Center
+                <li className="flex items-center gap-2">
+                  <span className="text-gray-400">Phone:</span>
+                  <a href="tel:+919369467134" className="hover:text-white">
+                    +91 9369 467134
                   </a>
                 </li>
-                <li>
-                  <a href="#" className="hover:text-white">
-                    Contact Us
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-white">
-                    FAQs
+                <li className="flex items-center gap-2">
+                  <span className="text-gray-400">Email:</span>
+                  <a
+                    href="mailto:bukizzstore@gmail.com"
+                    className="hover:text-white"
+                    target="_top"
+                  >
+                    bukizzstore@gmail.com
                   </a>
                 </li>
               </ul>
@@ -334,19 +335,19 @@ export default function LandingPage() {
               <h4 className="font-semibold mb-4">Legal</h4>
               <ul className="space-y-2 text-sm text-gray-400">
                 <li>
-                  <a href="#" className="hover:text-white">
+                  <Link to="/privacy-policy" className="hover:text-white">
                     Privacy Policy
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white">
+                  <Link to="/terms-of-service" className="hover:text-white">
                     Terms of Service
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white">
+                  <Link to="/seller-policy" className="hover:text-white">
                     Seller Policy
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>

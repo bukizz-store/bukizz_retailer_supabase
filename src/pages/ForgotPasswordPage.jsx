@@ -35,33 +35,64 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left side - Decorative */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-violet-950 to-slate-900 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-700 relative overflow-hidden">
+        {/* Background elements */}
         <div className="absolute inset-0">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-violet-500/20 rounded-full blur-3xl" />
-          <div className="absolute bottom-20 -left-20 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl" />
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-20 -left-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
         </div>
 
         <div className="relative z-10 flex flex-col justify-center p-12 text-white">
           <div className="flex items-center gap-3 mb-12">
-            <img src="/logo.svg" alt="Bukizz Logo" className="h-16 w-auto" />
+            <img
+              src="/logo.svg"
+              alt="Bukizz Logo"
+              className="h-16 w-auto brightness-0 invert"
+            />
           </div>
 
           <h1 className="text-4xl font-bold mb-6">
-            Reset your{" "}
-            <span className="bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
-              password
-            </span>
+            Reset your
+            <br />
+            <span className="text-yellow-300">Password</span>
           </h1>
 
-          <p className="text-lg text-slate-400">
-            Don&apos;t worry, it happens to the best of us. Enter your email and
-            we&apos;ll send you a reset link.
+          <p className="text-lg text-blue-100 mb-10 max-w-md">
+            Securely access your account to manage your school supplies
+            business.
           </p>
+
+          <div className="space-y-6">
+            {[
+              {
+                title: "0% Commission",
+                desc: "Keep 100% of your profits on direct sales.",
+              },
+              {
+                title: "Fast Settlements",
+                desc: "Get paid within 7-10 days of delivery.",
+              },
+              {
+                title: "School Network",
+                desc: "Exclusive access to partner schools & mandates.",
+              },
+            ].map((item, index) => (
+              <div key={index} className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/20">
+                  <div className="w-2 h-2 rounded-full bg-yellow-300" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">{item.title}</h3>
+                  <p className="text-blue-100 text-sm">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Right side - Form */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-white dark:bg-slate-950">
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-white">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 justify-center mb-8">
@@ -70,9 +101,7 @@ export default function ForgotPasswordPage() {
               alt="Bukizz Logo"
               className="w-10 h-10"
             />
-            <span className="text-xl font-bold text-slate-900 dark:text-white">
-              Bukizz
-            </span>
+            <span className="text-xl font-bold text-slate-900">Bukizz</span>
           </div>
 
           {submitted ? (
@@ -80,10 +109,10 @@ export default function ForgotPasswordPage() {
               <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
                 <CheckCircle className="h-8 w-8 text-emerald-600" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">
                 Check your email
               </h2>
-              <p className="text-slate-500 dark:text-slate-400 mb-8">
+              <p className="text-slate-500 mb-8">
                 We&apos;ve sent a password reset link to your email address.
                 Please check your inbox and spam folder.
               </p>
@@ -98,10 +127,10 @@ export default function ForgotPasswordPage() {
           ) : (
             <>
               <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">
                   Forgot your password?
                 </h2>
-                <p className="text-slate-500 dark:text-slate-400">
+                <p className="text-slate-500">
                   Enter your email address and we&apos;ll send you a link to
                   reset your password.
                 </p>
@@ -133,11 +162,11 @@ export default function ForgotPasswordPage() {
                 </Button>
               </form>
 
-              <p className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-8 text-center text-sm text-slate-500">
                 Remember your password?{" "}
                 <Link
                   to="/login"
-                  className="text-violet-600 hover:text-violet-700 dark:text-violet-400 font-medium"
+                  className="text-violet-600 hover:text-violet-700 font-medium"
                 >
                   Sign in
                 </Link>

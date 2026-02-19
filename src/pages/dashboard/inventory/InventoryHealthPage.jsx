@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 // ── Thresholds ──
-const LOW_STOCK_THRESHOLD = 5;
+const LOW_STOCK_THRESHOLD = 10;
 
 const healthCards = [
     {

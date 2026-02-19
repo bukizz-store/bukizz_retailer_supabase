@@ -1,6 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
+import { Check, Phone, Mail } from "lucide-react";
 
 const steps = [
   {
@@ -181,12 +181,30 @@ export function OnboardingSidebar({ currentStep, completedSteps }) {
 
       {/* Footer */}
       <div className="pt-4 border-t border-gray-200">
-        <p className="text-xs text-[#878787]">
-          Need help?{" "}
-          <a href="#" className="text-[#2874F0] hover:underline">
-            Contact Support
-          </a>
-        </p>
+        <div className="text-xs text-[#878787] flex items-center gap-1">
+          Need help?
+          <div className="relative group inline-block">
+            <button className="text-[#2874F0] hover:underline focus:outline-none">
+              Contact Support
+            </button>
+            {/* Tooltip */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max hidden group-hover:block z-50">
+              <div className="bg-slate-800 text-white text-xs rounded py-2 px-3 shadow-lg text-center relative">
+                <div className="font-semibold mb-1">Contact Support</div>
+                <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                  <Phone className="w-3 h-3 text-slate-400" />
+                  <span>+91 9369 467134</span>
+                </div>
+                <div className="flex items-center justify-center gap-1.5">
+                  <Mail className="w-3 h-3 text-slate-400" />
+                  <span>bukizzstore@gmail.com</span>
+                </div>
+                {/* Arrow */}
+                <div className="absolute w-2 h-2 bg-slate-800 rotate-45 left-1/2 -translate-x-1/2 -bottom-1"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

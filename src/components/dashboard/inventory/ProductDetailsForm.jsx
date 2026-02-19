@@ -678,6 +678,14 @@ export default function ProductDetailsForm({
       toast({ title: "Base price is required", variant: "destructive" });
       return;
     }
+    if (!formData.shortDescription.trim()) {
+      toast({ title: "Short description is required", variant: "destructive" });
+      return;
+    }
+    if (!formData.description.trim() || formData.description === "<p></p>") {
+      toast({ title: "Full description is required", variant: "destructive" });
+      return;
+    }
     if (images.length === 0) {
       toast({
         title: "At least one image is required",
@@ -908,7 +916,7 @@ export default function ProductDetailsForm({
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Short Description
+                Short Description <span className="text-red-500">*</span>
               </label>
               <textarea
                 className="flex w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 transition-all hover:border-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 min-h-[80px]"
@@ -923,7 +931,7 @@ export default function ProductDetailsForm({
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Full Description
+                Full Description <span className="text-red-500">*</span>
               </label>
               <RichTextEditor
                 value={formData.description}
@@ -1502,7 +1510,9 @@ export default function ProductDetailsForm({
           {/* ── Media (moved here) ── */}
           <Card>
             <CardHeader>
-              <CardTitle>Media</CardTitle>
+              <CardTitle>
+                Media <span className="text-red-500">*</span>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <ImageUpload

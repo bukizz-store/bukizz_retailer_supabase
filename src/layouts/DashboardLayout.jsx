@@ -325,9 +325,9 @@ export default function DashboardLayout() {
 
           <div className="flex items-center gap-2 ml-auto">
             <WarehouseSwitcher />
-            <button className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+            {/* <button className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
               <HelpCircle className="h-5 w-5" />
-            </button>
+            </button> */}
             <Link
               to="/dashboard/notifications"
               className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"

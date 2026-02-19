@@ -18,7 +18,7 @@ export default function LoginPage() {
   const location = useLocation();
   const { login, runPostLoginChecks, error, clearError } = useAuthStore();
 
-  const from = location.state?.from?.pathname || "/dashboard";
+  const from = location.state?.from?.pathname || "/dashboard/overview";
 
   const {
     register,
@@ -38,7 +38,9 @@ export default function LoginPage() {
 
     switch (checks.destination) {
       case "dashboard":
-        navigate(from === "/login" ? "/dashboard" : from, { replace: true });
+        navigate(from === "/login" ? "/dashboard/overview" : from, {
+          replace: true,
+        });
         break;
       case "onboarding":
         // Profile incomplete → send to register page (ID & Signature step)
@@ -68,43 +70,56 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left side - Decorative */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-violet-950 to-slate-900 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-700 relative overflow-hidden">
         {/* Background elements */}
         <div className="absolute inset-0">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-violet-500/20 rounded-full blur-3xl" />
-          <div className="absolute bottom-20 -left-20 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl" />
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-20 -left-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
         </div>
 
         <div className="relative z-10 flex flex-col justify-center p-12 text-white">
           <div className="flex items-center gap-3 mb-12">
-            <img src="/logo.svg" alt="Bukizz Logo" className="h-16 w-auto" />
+            <img
+              src="/logo.svg"
+              alt="Bukizz Logo"
+              className="h-16 w-auto  "
+            />
           </div>
 
           <h1 className="text-4xl font-bold mb-6">
-            Welcome back to your{" "}
-            <span className="bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
-              Seller Dashboard
-            </span>
+            Grow your business with
+            <br />
+            <span className="text-yellow-300">Bukizz Store</span>
           </h1>
 
-          <p className="text-lg text-slate-400 mb-8">
-            Manage your products, track orders, and grow your school supplies
-            business.
+          <p className="text-lg text-blue-100 mb-10 max-w-md">
+            Join India's most trusted marketplace for school supplies. Connect
+            directly with parents and schools.
           </p>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-6">
             {[
-              { label: "Active Vendors", value: "500+" },
-              { label: "Schools Connected", value: "1,200+" },
-              { label: "Orders Fulfilled", value: "50K+" },
-              { label: "Satisfaction Rate", value: "98%" },
-            ].map((stat, index) => (
-              <div
-                key={index}
-                className="p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10"
-              >
-                <p className="text-2xl font-bold text-white">{stat.value}</p>
-                <p className="text-sm text-slate-400">{stat.label}</p>
+              {
+                title: "0% Commission",
+                desc: "Keep 100% of your profits on direct sales.",
+              },
+              {
+                title: "Fast Settlements",
+                desc: "Get paid within 7-10 days of delivery.",
+              },
+              {
+                title: "School Network",
+                desc: "Exclusive access to partner schools & mandates.",
+              },
+            ].map((item, index) => (
+              <div key={index} className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/20">
+                  <div className="w-2 h-2 rounded-full bg-yellow-300" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">{item.title}</h3>
+                  <p className="text-blue-100 text-sm">{item.desc}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -112,7 +127,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right side - Login form */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-white dark:bg-slate-950">
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-white">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 justify-center mb-8">
@@ -121,16 +136,14 @@ export default function LoginPage() {
               alt="Bukizz Logo"
               className="w-10 h-10"
             />
-            <span className="text-xl font-bold text-slate-900 dark:text-white">
-              Bukizz
-            </span>
+            <span className="text-xl font-bold text-slate-900">Bukizz</span>
           </div>
 
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">
               Sign in to your account
             </h2>
-            <p className="text-slate-500 dark:text-slate-400">
+            <p className="text-slate-500">
               Enter your credentials to access your dashboard
             </p>
           </div>
@@ -163,7 +176,7 @@ export default function LoginPage() {
               <div className="mt-2 flex justify-end">
                 <Link
                   to="/forgot-password"
-                  className="text-sm text-violet-600 hover:text-violet-700 dark:text-violet-400"
+                  className="text-sm text-violet-600 hover:text-violet-700"
                 >
                   Forgot password?
                 </Link>
@@ -181,11 +194,11 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <p className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-8 text-center text-sm text-slate-500">
             Don&apos;t have an account?{" "}
             <Link
               to="/register"
-              className="text-violet-600 hover:text-violet-700 dark:text-violet-400 font-medium"
+              className="text-violet-600 hover:text-violet-700 font-medium"
             >
               Register as a vendor
             </Link>
