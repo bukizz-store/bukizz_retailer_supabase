@@ -1,9 +1,9 @@
-import React, { useEffect, useCallback } from 'react';
-import useSchoolStore from '@/store/schoolStore';
-import { useWarehouse } from '@/context/WarehouseContext';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { cn } from '@/lib/utils';
+import React, { useEffect, useCallback } from "react";
+import useSchoolStore from "@/store/schoolStore";
+import { useWarehouse } from "@/context/WarehouseContext";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { cn } from "@/lib/utils";
 import {
   X,
   Search,
@@ -13,12 +13,12 @@ import {
   Check,
   Loader2,
   AlertCircle,
-} from 'lucide-react';
+} from "lucide-react";
 
 const PRODUCT_CATEGORIES = [
-  { label: 'Bookset', value: 'bookset' },
-  { label: 'Uniform', value: 'uniform' },
-  { label: 'Stationary', value: 'stationary' },
+  { label: "Bookset", value: "bookset" },
+  { label: "Uniform", value: "uniform" },
+  { label: "Stationary", value: "stationary" },
 ];
 
 /**
@@ -65,12 +65,12 @@ export default function SchoolRequestModal({ onSuccess }) {
       const value = e.target.value;
       searchSchools(value);
     },
-    [searchSchools]
+    [searchSchools],
   );
 
   // Handle submit
   const handleSubmit = async () => {
-    const result = await submitSchoolAccessRequest();
+    const result = await submitSchoolAccessRequest(activeWarehouse?.id);
     if (result.success && onSuccess) {
       onSuccess();
     }
@@ -78,7 +78,8 @@ export default function SchoolRequestModal({ onSuccess }) {
 
   if (!isRequestModalOpen) return null;
 
-  const warehouseCity = activeWarehouse?.address?.city || activeWarehouse?.city || '';
+  const warehouseCity =
+    activeWarehouse?.address?.city || activeWarehouse?.city || "";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -99,7 +100,10 @@ export default function SchoolRequestModal({ onSuccess }) {
             {warehouseCity && (
               <p className="mt-0.5 text-sm text-slate-500 flex items-center gap-1">
                 <MapPin className="h-3.5 w-3.5" />
-                Showing schools in <span className="font-medium text-slate-700">{warehouseCity}</span>
+                Showing schools in{" "}
+                <span className="font-medium text-slate-700">
+                  {warehouseCity}
+                </span>
               </p>
             )}
           </div>
@@ -164,24 +168,28 @@ export default function SchoolRequestModal({ onSuccess }) {
                     key={school.id}
                     onClick={() => selectSchool(school.id)}
                     className={cn(
-                      'w-full flex items-start gap-4 rounded-xl border-2 p-4 text-left transition-all',
+                      "w-full flex items-start gap-4 rounded-xl border-2 p-4 text-left transition-all",
                       selectedSchoolId === school.id
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-slate-200 hover:border-blue-300'
+                        ? "border-blue-600 bg-blue-50"
+                        : "border-slate-200 hover:border-blue-300",
                     )}
                   >
                     <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-violet-100">
                       <GraduationCap className="h-6 w-6 text-violet-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900">{school.name}</p>
+                      <p className="font-medium text-slate-900">
+                        {school.name}
+                      </p>
                       <div className="flex items-center gap-1 mt-1">
                         <MapPin className="h-3.5 w-3.5 text-slate-400" />
                         <p className="text-sm text-slate-500 truncate">
                           {school.city || school.address?.city}
                           {(school.state || school.address?.state) &&
                             `, ${school.state || school.address?.state}`}
-                          {(school.postalCode || school.address?.postalCode || school.pincode) &&
+                          {(school.postalCode ||
+                            school.address?.postalCode ||
+                            school.pincode) &&
                             ` - ${school.postalCode || school.address?.postalCode || school.pincode}`}
                         </p>
                       </div>
@@ -215,10 +223,10 @@ export default function SchoolRequestModal({ onSuccess }) {
                     key={category.value}
                     onClick={() => toggleCategory(category.value)}
                     className={cn(
-                      'rounded-full px-4 py-2 text-sm font-medium transition-colors border',
+                      "rounded-full px-4 py-2 text-sm font-medium transition-colors border",
                       selectedCategories.includes(category.value)
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-slate-600 border-slate-300 hover:border-blue-300'
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-slate-600 border-slate-300 hover:border-blue-300",
                     )}
                   >
                     {selectedCategories.includes(category.value) && (
