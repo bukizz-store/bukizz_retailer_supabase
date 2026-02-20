@@ -16,6 +16,8 @@ import {
     Loader2,
     Minus,
     Plus,
+    ChevronDown,
+    ChevronRight,
 } from 'lucide-react';
 
 // ── Thresholds ──
@@ -58,43 +60,6 @@ const healthCards = [
 
 // ── Helpers ──
 
-/** Flatten products → one row per variant (or one row for the product if no variants). */
-function flattenToVariantRows(products) {
-    const rows = [];
-    for (const product of products) {
-        const variants = product.variants || [];
-        if (variants.length > 0) {
-            for (const v of variants) {
-                rows.push({
-                    rowId: v.id,
-                    variantId: v.id,
-                    isVariant: true,
-                    productId: product.id,
-                    productName: product.title,
-                    variantLabel: buildVariantLabel(v),
-                    sku: v.sku || product.sku,
-                    stock: v.stock ?? 0,
-                    price: v.price ?? product.basePrice ?? 0,
-                });
-            }
-        } else {
-            // Product without variants — display-only, stock not editable via variant API
-            rows.push({
-                rowId: product.id,
-                variantId: null,
-                isVariant: false,
-                productId: product.id,
-                productName: product.title,
-                variantLabel: 'No variants',
-                sku: product.sku,
-                stock: product.stock ?? 0,
-                price: product.basePrice ?? 0,
-            });
-        }
-    }
-    return rows;
-}
-
 function buildVariantLabel(variant) {
     const parts = [variant.optionValue1, variant.optionValue2, variant.optionValue3].filter(Boolean);
     return parts.length > 0 ? parts.join(' / ') : '';
@@ -104,6 +69,50 @@ function deriveStockStatus(stock) {
     if (stock <= 0) return 'out_of_stock';
     if (stock <= LOW_STOCK_THRESHOLD) return 'low_stock';
     return 'in_stock';
+}
+
+/** Derive worst (most critical) stock status among an array of statuses. */
+function worstStatus(statuses) {
+    if (statuses.includes('out_of_stock')) return 'out_of_stock';
+    if (statuses.includes('low_stock')) return 'low_stock';
+    return 'in_stock';
+}
+
+/** Group products → one group per product, each with its variants array. */
+function groupByProduct(products) {
+    return products.map((product) => {
+        const rawVariants = product.variants || [];
+        const variants = rawVariants.length > 0
+            ? rawVariants.map((v) => ({
+                variantId: v.id,
+                isVariant: true,
+                variantLabel: buildVariantLabel(v),
+                sku: v.sku || product.sku,
+                stock: v.stock ?? 0,
+                price: v.price ?? product.basePrice ?? 0,
+            }))
+            : [{
+                variantId: null,
+                isVariant: false,
+                variantLabel: 'No variants',
+                sku: product.sku,
+                stock: product.stock ?? 0,
+                price: product.basePrice ?? 0,
+            }];
+
+        const totalStock = variants.reduce((sum, v) => sum + v.stock, 0);
+        const status = worstStatus(variants.map((v) => deriveStockStatus(v.stock)));
+
+        return {
+            productId: product.id,
+            productName: product.title,
+            sku: product.sku,
+            variants,
+            totalStock,
+            status,
+            hasVariants: rawVariants.length > 0,
+        };
+    });
 }
 
 export default function InventoryHealthPage() {
@@ -118,6 +127,9 @@ export default function InventoryHealthPage() {
     // ── Filter / search state ──
     const [selectedFilter, setSelectedFilter] = useState('out_of_stock');
     const [searchQuery, setSearchQuery] = useState('');
+
+    // ── Expand / collapse state: { [productId]: boolean } ──
+    const [expandedProducts, setExpandedProducts] = useState({});
 
     // ── Inline stock edits: { [variantId]: newValue (number) } ──
     const [stockEdits, setStockEdits] = useState({});
@@ -163,41 +175,61 @@ export default function InventoryHealthPage() {
         fetchAllProducts();
     }, [fetchAllProducts]);
 
-    // ── Derived variant-level rows ──
-    const allRows = useMemo(() => flattenToVariantRows(allProducts), [allProducts]);
+    // ── Derived product groups ──
+    const allGroups = useMemo(() => groupByProduct(allProducts), [allProducts]);
 
-    // ── Counts ──
+    // ── Flat variant count for SKU-level stats ──
+    const allVariants = useMemo(() => allGroups.flatMap(g => g.variants), [allGroups]);
+
+    // ── Counts (variant / SKU level) ──
     const counts = useMemo(() => ({
-        all: allRows.length,
-        low_stock: allRows.filter(r => deriveStockStatus(r.stock) === 'low_stock').length,
-        out_of_stock: allRows.filter(r => deriveStockStatus(r.stock) === 'out_of_stock').length,
-        needs_restock: allRows.filter(r => deriveStockStatus(r.stock) !== 'in_stock').length,
-    }), [allRows]);
+        all: allVariants.length,
+        low_stock: allVariants.filter(v => deriveStockStatus(v.stock) === 'low_stock').length,
+        out_of_stock: allVariants.filter(v => deriveStockStatus(v.stock) === 'out_of_stock').length,
+        needs_restock: allVariants.filter(v => deriveStockStatus(v.stock) !== 'in_stock').length,
+    }), [allVariants]);
 
-    // ── Filtered list ──
-    const filteredRows = useMemo(() => {
-        let rows = allRows;
+    // ── Filtered groups ──
+    const filteredGroups = useMemo(() => {
+        let groups = allGroups;
 
+        // Filter: show a product group if ANY of its variants match the filter
         if (selectedFilter === 'low_stock') {
-            rows = rows.filter(r => deriveStockStatus(r.stock) === 'low_stock');
+            groups = groups.filter(g => g.variants.some(v => deriveStockStatus(v.stock) === 'low_stock'));
         } else if (selectedFilter === 'out_of_stock') {
-            rows = rows.filter(r => deriveStockStatus(r.stock) === 'out_of_stock');
+            groups = groups.filter(g => g.variants.some(v => deriveStockStatus(v.stock) === 'out_of_stock'));
         } else if (selectedFilter === 'needs_restock') {
-            rows = rows.filter(r => deriveStockStatus(r.stock) !== 'in_stock');
+            groups = groups.filter(g => g.variants.some(v => deriveStockStatus(v.stock) !== 'in_stock'));
         }
 
+        // Search: match against product name, product sku, or any variant label/sku
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
-            rows = rows.filter(
-                r =>
-                    r.productName.toLowerCase().includes(q) ||
-                    r.sku?.toLowerCase().includes(q) ||
-                    r.variantLabel.toLowerCase().includes(q)
+            groups = groups.filter(
+                g =>
+                    g.productName.toLowerCase().includes(q) ||
+                    g.sku?.toLowerCase().includes(q) ||
+                    g.variants.some(
+                        v =>
+                            v.sku?.toLowerCase().includes(q) ||
+                            v.variantLabel.toLowerCase().includes(q)
+                    )
             );
         }
 
-        return rows;
-    }, [allRows, selectedFilter, searchQuery]);
+        return groups;
+    }, [allGroups, selectedFilter, searchQuery]);
+
+    // ── Toggle expand / collapse for a product ──
+    const toggleExpand = (productId) => {
+        setExpandedProducts(prev => ({ ...prev, [productId]: !prev[productId] }));
+    };
+
+    // ── Filtered variant count (for footer) ──
+    const filteredVariantCount = useMemo(
+        () => filteredGroups.reduce((sum, g) => sum + g.variants.length, 0),
+        [filteredGroups]
+    );
 
     // ── Inline stock edit handlers ──
     const handleStockEdit = (variantId, value) => {
@@ -216,11 +248,11 @@ export default function InventoryHealthPage() {
     const dirtyEntries = useMemo(() => {
         return Object.entries(stockEdits)
             .filter(([variantId, value]) => {
-                const row = allRows.find(r => r.variantId === variantId);
-                return row && row.isVariant && value !== '' && value !== row.stock;
+                const variant = allVariants.find(v => v.variantId === variantId);
+                return variant && variant.isVariant && value !== '' && value !== variant.stock;
             })
             .map(([variantId, value]) => ({ variantId, quantity: typeof value === 'number' ? value : parseInt(value, 10) }));
-    }, [stockEdits, allRows]);
+    }, [stockEdits, allVariants]);
 
     // ── Save changes ──
     const handleSaveChanges = async () => {
@@ -392,7 +424,7 @@ export default function InventoryHealthPage() {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : filteredRows.length === 0 ? (
+                            ) : filteredGroups.length === 0 ? (
                                 <tr>
                                     <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
                                         <Package className="mx-auto mb-4 h-12 w-12 text-slate-300" />
@@ -405,102 +437,193 @@ export default function InventoryHealthPage() {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredRows.map((row) => {
-                                    const editedValue = stockEdits[row.variantId];
-                                    const displayStock = editedValue ?? row.stock;
-                                    const isDirty = editedValue !== undefined && editedValue !== '' && editedValue !== row.stock;
-                                    const status = deriveStockStatus(row.stock);
+                                filteredGroups.map((group) => {
+                                    const isExpanded = !!expandedProducts[group.productId];
+                                    const hasMultipleVariants = group.hasVariants && group.variants.length > 1;
+                                    const canExpand = group.hasVariants;
 
                                     return (
-                                        <tr
-                                            key={row.rowId}
-                                            className={cn(
-                                                "transition-colors hover:bg-slate-50",
-                                                isDirty && "bg-blue-50/40"
-                                            )}
-                                        >
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100">
-                                                        <Package className="h-5 w-5 text-slate-400" />
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="truncate font-medium text-slate-900">
-                                                            {row.productName}
-                                                        </p>
-                                                        {row.variantLabel && row.variantLabel !== 'Default' && (
-                                                            <p className="text-xs text-slate-500">
-                                                                {row.variantLabel}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <code className="rounded bg-slate-100 px-2 py-1 text-sm text-slate-600">
-                                                    {row.sku}
-                                                </code>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={cn(
-                                                    "text-sm font-semibold",
-                                                    status === 'out_of_stock' ? "text-red-600" :
-                                                        status === 'low_stock' ? "text-amber-600" : "text-slate-900"
-                                                )}>
-                                                    {row.stock}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {row.isVariant ? (
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => quickAdjust(row.variantId, row.stock, -1)}
-                                                            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 transition-colors hover:bg-slate-50 disabled:opacity-40"
-                                                            disabled={displayStock <= 0}
-                                                        >
-                                                            <Minus className="h-3.5 w-3.5" />
-                                                        </button>
-                                                        <input
-                                                            type="text"
-                                                            inputMode="numeric"
-                                                            className={cn(
-                                                                "w-20 rounded-lg border px-2 py-1.5 text-center text-sm font-medium transition-colors",
-                                                                "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
-                                                                isDirty
-                                                                    ? "border-blue-400 bg-blue-50 text-blue-700 ring-1 ring-blue-200"
-                                                                    : status === 'out_of_stock'
-                                                                        ? "border-red-300 bg-red-50 text-red-700"
-                                                                        : status === 'low_stock'
-                                                                            ? "border-amber-300 bg-amber-50 text-amber-700"
-                                                                            : "border-slate-300 bg-white text-slate-900"
-                                                            )}
-                                                            value={editedValue ?? row.stock}
-                                                            onChange={(e) => handleStockEdit(row.variantId, e.target.value)}
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => quickAdjust(row.variantId, row.stock, 1)}
-                                                            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 transition-colors hover:bg-slate-50"
-                                                        >
-                                                            <Plus className="h-3.5 w-3.5" />
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-center text-xs text-slate-400" title="Add variants to this product to manage stock">
-                                                        No variants
-                                                    </p>
+                                        <React.Fragment key={group.productId}>
+                                            {/* ── Product Header Row ── */}
+                                            <tr
+                                                className={cn(
+                                                    "transition-colors",
+                                                    canExpand ? "cursor-pointer hover:bg-slate-100" : "hover:bg-slate-50",
+                                                    isExpanded && "bg-slate-50"
                                                 )}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {getStockBadge(row.stock)}
-                                            </td>
-                                            <td className="hidden px-6 py-4 text-right md:table-cell">
-                                                <span className="font-medium text-slate-900">
-                                                    ₹{row.price?.toLocaleString()}
-                                                </span>
-                                            </td>
-                                        </tr>
+                                                onClick={() => canExpand && toggleExpand(group.productId)}
+                                            >
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        {/* Chevron toggle */}
+                                                        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center">
+                                                            {canExpand ? (
+                                                                isExpanded
+                                                                    ? <ChevronDown className="h-4 w-4 text-slate-500 transition-transform" />
+                                                                    : <ChevronRight className="h-4 w-4 text-slate-400 transition-transform" />
+                                                            ) : (
+                                                                <span className="h-4 w-4" />
+                                                            )}
+                                                        </div>
+                                                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100">
+                                                            <Package className="h-5 w-5 text-slate-400" />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="truncate font-semibold text-slate-900">
+                                                                {group.productName}
+                                                            </p>
+                                                            {canExpand && (
+                                                                <p className="text-xs text-slate-500">
+                                                                    {group.variants.length} variant{group.variants.length > 1 ? 's' : ''}
+                                                                </p>
+                                                            )}
+                                                            {!group.hasVariants && (
+                                                                <p className="text-xs text-slate-400">No variants</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <code className="rounded bg-slate-100 px-2 py-1 text-sm text-slate-600">
+                                                        {group.sku}
+                                                    </code>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className={cn(
+                                                        "text-sm font-semibold",
+                                                        group.status === 'out_of_stock' ? "text-red-600" :
+                                                            group.status === 'low_stock' ? "text-amber-600" : "text-slate-900"
+                                                    )}>
+                                                        {group.totalStock}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    {/* Stock editing is at variant level — show dash on product row */}
+                                                    {group.hasVariants ? (
+                                                        <span className="text-xs text-slate-400">—</span>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-400">N/A</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {getStockBadge(group.totalStock)}
+                                                </td>
+                                                <td className="hidden px-6 py-4 text-right md:table-cell">
+                                                    {/* Price range or single price */}
+                                                    {(() => {
+                                                        const prices = group.variants.map(v => v.price).filter(Boolean);
+                                                        if (prices.length === 0) return <span className="text-slate-400">—</span>;
+                                                        const min = Math.min(...prices);
+                                                        const max = Math.max(...prices);
+                                                        return (
+                                                            <span className="font-medium text-slate-900">
+                                                                {min === max
+                                                                    ? `₹${min.toLocaleString()}`
+                                                                    : `₹${min.toLocaleString()} – ₹${max.toLocaleString()}`}
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </td>
+                                            </tr>
+
+                                            {/* ── Variant Sub-Rows (shown when expanded) ── */}
+                                            {isExpanded && group.hasVariants && group.variants.map((variant) => {
+                                                const editedValue = stockEdits[variant.variantId];
+                                                const displayStock = editedValue ?? variant.stock;
+                                                const isDirty = editedValue !== undefined && editedValue !== '' && editedValue !== variant.stock;
+                                                const status = deriveStockStatus(variant.stock);
+
+                                                return (
+                                                    <tr
+                                                        key={variant.variantId}
+                                                        className={cn(
+                                                            "transition-colors hover:bg-blue-50/30",
+                                                            isDirty && "bg-blue-50/40",
+                                                            "bg-slate-50/50"
+                                                        )}
+                                                    >
+                                                        <td className="py-3 pr-6 pl-10">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-6 flex-shrink-0 flex justify-center">
+                                                                    <div className="h-5 w-px bg-slate-300" />
+                                                                </div>
+                                                                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-blue-50 border border-blue-100">
+                                                                    <Package className="h-3.5 w-3.5 text-blue-400" />
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="truncate text-sm text-slate-700">
+                                                                        {variant.variantLabel || 'Default'}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-3">
+                                                            <code className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                                                                {variant.sku}
+                                                            </code>
+                                                        </td>
+                                                        <td className="px-6 py-3 text-center">
+                                                            <span className={cn(
+                                                                "text-sm font-semibold",
+                                                                status === 'out_of_stock' ? "text-red-600" :
+                                                                    status === 'low_stock' ? "text-amber-600" : "text-slate-900"
+                                                            )}>
+                                                                {variant.stock}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-3">
+                                                            {variant.isVariant ? (
+                                                                <div className="flex items-center justify-center gap-1">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => { e.stopPropagation(); quickAdjust(variant.variantId, variant.stock, -1); }}
+                                                                        className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 transition-colors hover:bg-slate-50 disabled:opacity-40"
+                                                                        disabled={displayStock <= 0}
+                                                                    >
+                                                                        <Minus className="h-3 w-3" />
+                                                                    </button>
+                                                                    <input
+                                                                        type="text"
+                                                                        inputMode="numeric"
+                                                                        className={cn(
+                                                                            "w-16 rounded-lg border px-2 py-1 text-center text-sm font-medium transition-colors",
+                                                                            "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+                                                                            isDirty
+                                                                                ? "border-blue-400 bg-blue-50 text-blue-700 ring-1 ring-blue-200"
+                                                                                : status === 'out_of_stock'
+                                                                                    ? "border-red-300 bg-red-50 text-red-700"
+                                                                                    : status === 'low_stock'
+                                                                                        ? "border-amber-300 bg-amber-50 text-amber-700"
+                                                                                        : "border-slate-300 bg-white text-slate-900"
+                                                                        )}
+                                                                        value={editedValue ?? variant.stock}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        onChange={(e) => handleStockEdit(variant.variantId, e.target.value)}
+                                                                    />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => { e.stopPropagation(); quickAdjust(variant.variantId, variant.stock, 1); }}
+                                                                        className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 transition-colors hover:bg-slate-50"
+                                                                    >
+                                                                        <Plus className="h-3 w-3" />
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-center text-xs text-slate-400">N/A</p>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-6 py-3">
+                                                            {getStockBadge(variant.stock)}
+                                                        </td>
+                                                        <td className="hidden px-6 py-3 text-right md:table-cell">
+                                                            <span className="text-sm font-medium text-slate-700">
+                                                                ₹{variant.price?.toLocaleString()}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </React.Fragment>
                                     );
                                 })
                             )}
@@ -512,7 +635,8 @@ export default function InventoryHealthPage() {
             {/* Summary Footer with Save */}
             <div className="flex flex-wrap items-center gap-6 text-sm text-slate-500">
                 <span>
-                    Showing {filteredRows.length} of {allRows.length} SKUs
+                    Showing {filteredGroups.length} product{filteredGroups.length !== 1 ? 's' : ''}{' '}
+                    ({filteredVariantCount} of {allVariants.length} SKUs)
                 </span>
                 {dirtyEntries.length > 0 && (
                     <div className="flex items-center gap-3">
