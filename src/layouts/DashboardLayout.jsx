@@ -24,6 +24,7 @@ import {
   UserCog,
   Warehouse,
   ChevronRight,
+  Wallet,
 } from "lucide-react";
 import WarehouseSwitcher from "@/components/dashboard/WarehouseSwitcher";
 
@@ -86,6 +87,11 @@ const navItems = [
         icon: XCircle,
       },
     ],
+  },
+  {
+    label: "Settlements",
+    href: "/dashboard/settlements",
+    icon: Wallet,
   },
   {
     label: "Notifications",
