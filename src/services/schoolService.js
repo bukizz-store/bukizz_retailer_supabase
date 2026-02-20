@@ -5,7 +5,10 @@ export const schoolService = {
    * GET /api/v1/schools?city=<city>
    * Fetch schools filtered by city (warehouse city).
    */
-  getSchoolsByCity: async (city, { page = 1, limit = 50, search = "" } = {}) => {
+  getSchoolsByCity: async (
+    city,
+    { page = 1, limit = 50, search = "" } = {},
+  ) => {
     const params = { city, page, limit };
     if (search) params.search = search;
 
@@ -27,7 +30,14 @@ export const schoolService = {
    * GET /api/v1/schools
    * Search schools with optional filters.
    */
-  searchSchools: async ({ search = "", city = "", state = "", board = "", page = 1, limit = 50 } = {}) => {
+  searchSchools: async ({
+    search = "",
+    city = "",
+    state = "",
+    board = "",
+    page = 1,
+    limit = 50,
+  } = {}) => {
     const params = { page, limit };
     if (search) params.search = search;
     if (city) params.city = city;
@@ -47,7 +57,10 @@ export const schoolService = {
     const params = {};
     if (status) params.status = status;
 
-    const response = await apiClient.get('/retailer-schools/connected-schools', { params });
+    const response = await apiClient.get(
+      "/retailer-schools/connected-schools",
+      { params },
+    );
     return response.data;
   },
 
@@ -55,12 +68,17 @@ export const schoolService = {
    * GET /api/v1/schools/:id/catalog
    * Fetch the product catalog for a specific school.
    */
-  getSchoolCatalog: async (schoolId, { page = 1, limit = 50, search = "", category = "" } = {}) => {
+  getSchoolCatalog: async (
+    schoolId,
+    { page = 1, limit = 50, search = "", category = "" } = {},
+  ) => {
     const params = { page, limit };
     if (search) params.search = search;
     if (category && category !== "all") params.category = category;
 
-    const response = await apiClient.get(`/schools/${schoolId}/catalog`, { params });
+    const response = await apiClient.get(`/schools/${schoolId}/catalog`, {
+      params,
+    });
     return response.data?.data || response.data;
   },
 
@@ -77,12 +95,17 @@ export const schoolService = {
    * GET /api/v1/products/school/:schoolId
    * Fetch products associated with a specific school.
    */
-  getSchoolProducts: async (schoolId, { page = 1, limit = 50, search = "", productType = "" } = {}) => {
+  getSchoolProducts: async (
+    schoolId,
+    { page = 1, limit = 50, search = "", productType = "" } = {},
+  ) => {
     const params = { page, limit };
     if (search) params.search = search;
     if (productType && productType !== "all") params.productType = productType;
 
-    const response = await apiClient.get(`/products/school/${schoolId}`, { params });
+    const response = await apiClient.get(`/products/school/${schoolId}`, {
+      params,
+    });
     return response.data?.data || response.data;
   },
 
@@ -91,11 +114,15 @@ export const schoolService = {
    * Link retailer to a school (request school access).
    * retailerId is auto-picked from the authenticated user's token.
    */
-  requestSchoolAccess: async (schoolId, { productType = [] } = {}) => {
-    const response = await apiClient.post('/retailer-schools/link', {
+  requestSchoolAccess: async (
+    schoolId,
+    { productType = [], warehouseId } = {},
+  ) => {
+    const response = await apiClient.post("/retailer-schools/link", {
       schoolId,
-      status: 'pending',
+      status: "pending",
       productType,
+      warehouseId,
     });
     return response.data;
   },

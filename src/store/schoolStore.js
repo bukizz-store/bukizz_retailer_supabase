@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { schoolService } from '@/services/schoolService';
+import { create } from "zustand";
+import { schoolService } from "@/services/schoolService";
 
 /**
  * School Zustand Store
@@ -18,8 +18,8 @@ const useSchoolStore = create((set, get) => ({
   schoolsError: null,
 
   // ── Search / Filter ──────────────────────────────────────────────
-  searchQuery: '',
-  selectedCity: '',
+  searchQuery: "",
+  selectedCity: "",
 
   // ── School Access Request Modal State ────────────────────────────
   isRequestModalOpen: false,
@@ -47,9 +47,9 @@ const useSchoolStore = create((set, get) => ({
 
   // ── School Detail Page State ────────────────────────────────────
   // All data comes from single GET /schools/:id call
-  schoolDetail: null,       // full school object
-  schoolProducts: [],       // school.products extracted
-  schoolAnalytics: null,    // school.analytics extracted
+  schoolDetail: null, // full school object
+  schoolProducts: [], // school.products extracted
+  schoolAnalytics: null, // school.analytics extracted
   isLoadingSchoolDetail: false,
   schoolDetailError: null,
 
@@ -61,7 +61,7 @@ const useSchoolStore = create((set, get) => ({
    */
   fetchSchoolsByCity: async (city) => {
     if (!city) {
-      set({ schools: [], schoolsError: 'No warehouse city found.' });
+      set({ schools: [], schoolsError: "No warehouse city found." });
       return;
     }
 
@@ -73,14 +73,16 @@ const useSchoolStore = create((set, get) => ({
       });
 
       // API may return { schools: [...] } or an array directly
-      const schoolsList = Array.isArray(data) ? data : (data.schools || data.data || []);
+      const schoolsList = Array.isArray(data)
+        ? data
+        : data.schools || data.data || [];
 
       set({ schools: schoolsList, isLoadingSchools: false });
     } catch (error) {
       const message =
         error.response?.data?.message ||
         error.response?.data?.error ||
-        'Failed to fetch schools. Please try again.';
+        "Failed to fetch schools. Please try again.";
       set({ schools: [], isLoadingSchools: false, schoolsError: message });
     }
   },
@@ -97,14 +99,18 @@ const useSchoolStore = create((set, get) => ({
     set({ isLoadingSchools: true, schoolsError: null });
 
     try {
-      const data = await schoolService.getSchoolsByCity(city, { search: query });
-      const schoolsList = Array.isArray(data) ? data : (data.schools || data.data || []);
+      const data = await schoolService.getSchoolsByCity(city, {
+        search: query,
+      });
+      const schoolsList = Array.isArray(data)
+        ? data
+        : data.schools || data.data || [];
       set({ schools: schoolsList, isLoadingSchools: false });
     } catch (error) {
       const message =
         error.response?.data?.message ||
         error.response?.data?.error ||
-        'Failed to search schools.';
+        "Failed to search schools.";
       set({ isLoadingSchools: false, schoolsError: message });
     }
   },
@@ -118,7 +124,7 @@ const useSchoolStore = create((set, get) => ({
       isRequestModalOpen: true,
       selectedSchoolId: null,
       selectedCategories: [],
-      searchQuery: '',
+      searchQuery: "",
       submitError: null,
     });
 
@@ -134,7 +140,7 @@ const useSchoolStore = create((set, get) => ({
       isRequestModalOpen: false,
       selectedSchoolId: null,
       selectedCategories: [],
-      searchQuery: '',
+      searchQuery: "",
       submitError: null,
     });
   },
@@ -159,11 +165,13 @@ const useSchoolStore = create((set, get) => ({
   /**
    * Submit the school access request to the backend.
    */
-  submitSchoolAccessRequest: async () => {
+  submitSchoolAccessRequest: async (warehouseId) => {
     const { selectedSchoolId, selectedCategories } = get();
 
     if (!selectedSchoolId || selectedCategories.length === 0) {
-      set({ submitError: 'Please select a school and at least one product type.' });
+      set({
+        submitError: "Please select a school and at least one product type.",
+      });
       return { success: false };
     }
 
@@ -172,6 +180,7 @@ const useSchoolStore = create((set, get) => ({
     try {
       await schoolService.requestSchoolAccess(selectedSchoolId, {
         productType: selectedCategories,
+        warehouseId,
       });
 
       set({
@@ -179,7 +188,7 @@ const useSchoolStore = create((set, get) => ({
         isRequestModalOpen: false,
         selectedSchoolId: null,
         selectedCategories: [],
-        searchQuery: '',
+        searchQuery: "",
       });
 
       // Refresh connected schools lists after successful request
@@ -190,7 +199,7 @@ const useSchoolStore = create((set, get) => ({
       const message =
         error.response?.data?.message ||
         error.response?.data?.error ||
-        'Failed to submit school access request.';
+        "Failed to submit school access request.";
       set({ isSubmitting: false, submitError: message });
       return { success: false, error: message };
     }
@@ -231,9 +240,9 @@ const useSchoolStore = create((set, get) => ({
    */
   refreshAllConnectedSchools: () => {
     const { fetchConnectedSchools } = get();
-    fetchConnectedSchools('approved');
-    fetchConnectedSchools('pending');
-    fetchConnectedSchools('rejected');
+    fetchConnectedSchools("approved");
+    fetchConnectedSchools("pending");
+    fetchConnectedSchools("rejected");
   },
 
   // ── School Detail Page Actions ─────────────────────────────────
@@ -262,7 +271,7 @@ const useSchoolStore = create((set, get) => ({
       const message =
         error.response?.data?.message ||
         error.response?.data?.error ||
-        'Failed to load school details.';
+        "Failed to load school details.";
       set({
         schoolDetail: null,
         schoolProducts: [],
@@ -290,11 +299,12 @@ const useSchoolStore = create((set, get) => ({
   /**
    * Clear any errors.
    */
-  clearError: () => set({
-    schoolsError: null,
-    submitError: null,
-    connectedError: { approved: null, pending: null, rejected: null },
-  }),
+  clearError: () =>
+    set({
+      schoolsError: null,
+      submitError: null,
+      connectedError: { approved: null, pending: null, rejected: null },
+    }),
 
   /**
    * Reset the entire store.
@@ -304,8 +314,8 @@ const useSchoolStore = create((set, get) => ({
       schools: [],
       isLoadingSchools: false,
       schoolsError: null,
-      searchQuery: '',
-      selectedCity: '',
+      searchQuery: "",
+      selectedCity: "",
       isRequestModalOpen: false,
       selectedSchoolId: null,
       selectedCategories: [],
