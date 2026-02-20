@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Stepper } from "@/components/ui/Stepper";
 import ProductDetailsForm from "@/components/dashboard/inventory/ProductDetailsForm";
 import { productService } from "@/services/productService";
+import { schoolService } from "@/services/schoolService";
 import { useWarehouse } from "@/context/WarehouseContext";
 import { cn } from "@/lib/utils";
 import {
@@ -35,16 +36,38 @@ const steps = [
   { id: "details", label: "Product Details" },
 ];
 
-export default function AddSchoolProductPage() {
-  const { schoolId } = useParams();
+export default function AddSchoolProductPage({ isEditMode = false }) {
+  const { schoolId, productId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { activeWarehouse } = useWarehouse();
 
-  const schoolName = location.state?.schoolName || "School";
+  const [schoolName, setSchoolName] = useState(
+    location.state?.schoolName || "School",
+  );
   const allowedTypes = location.state?.allowedTypes || null;
 
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(isEditMode ? 1 : 0);
+
+  useEffect(() => {
+    if (isEditMode) {
+      setCurrentStep(1);
+    }
+  }, [isEditMode]);
+
+  useEffect(() => {
+    // If we're editing but didn't come from a page with schoolName in state, fetch the school name
+    if (isEditMode && schoolId && schoolName === "School") {
+      schoolService
+        .getSchoolById(schoolId)
+        .then((school) => {
+          if (school && school.name) {
+            setSchoolName(school.name);
+          }
+        })
+        .catch((err) => console.error("Could not fetch school details:", err));
+    }
+  }, [isEditMode, schoolId, schoolName]);
   const [loading, setLoading] = useState(true);
   const [schoolSubcategories, setSchoolSubcategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -99,7 +122,7 @@ export default function AddSchoolProductPage() {
   };
 
   const handleBack = () => {
-    if (currentStep > 0) {
+    if (currentStep > 0 && !isEditMode) {
       setCurrentStep(0);
     } else {
       navigate(-1);
@@ -128,10 +151,10 @@ export default function AddSchoolProductPage() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
-            Add School Product
+            {isEditMode ? "Edit School Product" : "Add School Product"}
           </h1>
           <p className="text-sm text-slate-500">
-            Adding product for{" "}
+            {isEditMode ? "Updating product for " : "Adding product for "}
             <span className="font-medium text-blue-600">{schoolName}</span>
           </p>
         </div>
@@ -243,7 +266,7 @@ export default function AddSchoolProductPage() {
 
       {/* Step 2: Product Details Form */}
       <div className={currentStep === 1 ? "block" : "hidden"}>
-        {selectedCategory && (
+        {(selectedCategory || isEditMode) && (
           <ProductDetailsForm
             category={selectedCategory}
             onBack={handleBack}
@@ -251,10 +274,12 @@ export default function AddSchoolProductPage() {
             // School-specific props
             schoolId={schoolId}
             schoolName={schoolName}
-            schoolProductType={selectedCategory.name?.toLowerCase()}
+            schoolProductType={selectedCategory?.name?.toLowerCase()}
             prefilledCity={
               typeof warehouseCity === "string" ? warehouseCity : ""
             }
+            productId={isEditMode ? productId : null}
+            isEditMode={isEditMode}
           />
         )}
       </div>

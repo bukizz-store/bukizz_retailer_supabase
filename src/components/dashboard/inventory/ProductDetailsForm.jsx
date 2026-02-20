@@ -216,6 +216,8 @@ export default function ProductDetailsForm({
   schoolName = null,
   schoolProductType = null,
   prefilledCity = "",
+  productId = null,
+  isEditMode = false,
 }) {
   const isSchoolFlow = !!schoolId;
   const { activeWarehouse } = useWarehouse();
@@ -227,6 +229,10 @@ export default function ProductDetailsForm({
   // ── School-specific State ─────────────────────────────────────
   const [grade, setGrade] = useState("");
   const [isMandatory, setIsMandatory] = useState(false);
+
+  const disabledBlurClass = isEditMode
+    ? "opacity-60 blur-[1px] pointer-events-none select-none transition-all duration-300"
+    : "";
 
   // Derive city to use: prefilled (school) > warehouse address (general) > empty
   const cityToUse =
@@ -247,12 +253,174 @@ export default function ProductDetailsForm({
     description: "", // RTE HTML — maps to productData.description
   });
 
+  const [localCategory, setLocalCategory] = useState(category);
+  const [localProductType, setLocalProductType] = useState(schoolProductType);
+
   // Auto-fill city on mount if available
   useEffect(() => {
     if (cityToUse && !formData.city) {
       setFormData((prev) => ({ ...prev, city: cityToUse }));
     }
   }, [cityToUse]);
+
+  // ── Fetch Product Context for Edit Mode ───────────────────────
+  const [isFetchingContext, setIsFetchingContext] = useState(false);
+
+  useEffect(() => {
+    if (isEditMode && productId) {
+      const fetchProductDetails = async () => {
+        setIsFetchingContext(true);
+        try {
+          const res = await productService.getComprehensiveProduct(productId);
+          const p = res?.data;
+
+          console.log("p", p);
+          if (p) {
+            setFormData({
+              title: p.productData.title || "",
+              sku: p.productData.sku || "",
+              city: p.productData.city || cityToUse || "",
+              basePrice:
+                p.productData.base_price || p.productData.basePrice || "",
+              compareAtPrice:
+                p.productData.compare_at_price ||
+                p.productData.compareAtPrice ||
+                "",
+              shortDescription:
+                p.productData.short_description ||
+                p.productData.shortDescription ||
+                "",
+              description: p.productData.description || "",
+            });
+
+            setLocalProductType(p.productType || p.product_type || "general");
+
+            if (p.schoolData || p.schoolInfo) {
+              const sData = p.schoolData || p.schoolInfo;
+              setGrade(sData.grade || "");
+              setIsMandatory(sData.mandatory || false);
+            }
+
+            const cats = p.categories;
+            if (cats && cats.length > 0) {
+              const cat = { ...cats[0], name: cats[0].label };
+              setLocalCategory(cat);
+              // console.log("cat", cat);
+            } else if (category) {
+              setLocalCategory(category);
+            }
+
+            // Populate Brand
+            const b = p.brandData;
+            if (b) {
+              setSelectedBrand({
+                id: b.brandId || b.id,
+                name: b.name,
+                logoUrl: b.logo_url || b.logoUrl,
+              });
+            }
+
+            // Populate Category Attributes Metadata
+            if (p.metadata?.categoryAttributes) {
+              setMetadata(p.metadata.categoryAttributes);
+            }
+
+            // Populate Highlights
+            if (p.highlights) {
+              const hArr = p.highlights.map((h) => ({
+                key: h.key,
+                value: h.value,
+              }));
+              setHighlights(hArr.length > 0 ? hArr : [{ key: "", value: "" }]);
+            }
+
+            // Populate Images
+            const imgs = p.images || p.mainImages || [];
+            if (imgs.length > 0) {
+              setImages(
+                imgs
+                  .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                  .map((i) => i.url || i),
+              );
+            }
+
+            // Populate Options and Variants
+            const backendOptions = p.productOptions || p.options || [];
+            if (backendOptions.length > 0) {
+              setProductOptions(
+                backendOptions.map((opt) => ({
+                  id: opt.id || Date.now().toString() + Math.random(),
+                  name: opt.name,
+                  hasImages: opt.hasImages || false,
+                  values: Array.isArray(opt.values)
+                    ? opt.values.map((v) =>
+                        typeof v === "object"
+                          ? {
+                              value: v.value || v.name,
+                              imageUrl: v.imageUrl || null,
+                            }
+                          : { value: v, imageUrl: null },
+                      )
+                    : [],
+                })),
+              );
+            }
+
+            if (p.variants && p.variants.length > 0) {
+              setVariants(
+                p.variants.map((v) => {
+                  const compareAt =
+                    parseFloat(v.compareAtPrice || v.compare_at_price) || 0;
+                  const price = parseFloat(v.price || v.variant_price) || 0;
+
+                  // comprehensive route usually gives options dictionary like { "Size": "M", "Color": "Red" }
+                  // we need to map them to option1, option2, option3 based on backendOptions order
+                  const opt1Name = backendOptions[0]?.name;
+                  const opt2Name = backendOptions[1]?.name;
+                  const opt3Name = backendOptions[2]?.name;
+
+                  return {
+                    id: v.id || null,
+                    name: v.name || "Default Variant",
+                    sku: v.sku || "",
+                    price: price,
+                    compareAtPrice: compareAt,
+                    stock: v.stock || 0,
+                    weight: v.weight || 0,
+                    option1:
+                      v.options && opt1Name
+                        ? v.options[opt1Name]
+                        : v.option1 || null,
+                    option2:
+                      v.options && opt2Name
+                        ? v.options[opt2Name]
+                        : v.option2 || null,
+                    option3:
+                      v.options && opt3Name
+                        ? v.options[opt3Name]
+                        : v.option3 || null,
+                    discount:
+                      compareAt > 0
+                        ? Math.round(((compareAt - price) / compareAt) * 100)
+                        : 0,
+                  };
+                }),
+              );
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch product details:", error);
+          toast({
+            title: "Failed to load product details",
+            variant: "destructive",
+          });
+        } finally {
+          setIsFetchingContext(false);
+        }
+      };
+      fetchProductDetails();
+    }
+  }, [isEditMode, productId, cityToUse, toast]);
 
   const updateField = (field, value) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -538,8 +706,9 @@ export default function ProductDetailsForm({
 
     if (validOpts.length === 0) {
       // Default variant — single variant with base info
-      setVariants([
+      setVariants((prev) => [
         {
+          id: prev[0]?.id || undefined,
           name: "Default Variant",
           option1: null,
           option2: null,
@@ -548,8 +717,8 @@ export default function ProductDetailsForm({
           compareAtPrice: parseFloat(formData.compareAtPrice) || 0,
           price: parseFloat(formData.basePrice) || 0,
           discount: 0,
-          stock: 0,
-          weight: 0,
+          stock: prev[0]?.stock || 0,
+          weight: prev[0]?.weight || 0,
         },
       ]);
       return;
@@ -577,6 +746,7 @@ export default function ProductDetailsForm({
         const price = existing?.price ?? (parseFloat(formData.basePrice) || 0);
 
         return {
+          id: existing?.id || undefined,
           name,
           option1: combo[0] || null,
           option2: combo[1] || null,
@@ -693,7 +863,7 @@ export default function ProductDetailsForm({
       });
       return;
     }
-    if (!category) {
+    if (!localCategory) {
       toast({ title: "Category is required", variant: "destructive" });
       return;
     }
@@ -751,7 +921,7 @@ export default function ProductDetailsForm({
       productData: {
         title: formData.title,
         sku: formData.sku,
-        productType: isSchoolFlow ? schoolProductType : "general",
+        productType: isSchoolFlow ? localProductType : "general",
         basePrice: parseFloat(formData.basePrice),
         compareAtPrice: parseFloat(formData.compareAtPrice) || null,
         shortDescription: formData.shortDescription,
@@ -779,6 +949,7 @@ export default function ProductDetailsForm({
         })),
 
       variants: variants.map((v) => ({
+        id: v.id || undefined,
         sku: v.sku,
         price: v.price,
         compareAtPrice: v.compareAtPrice || null,
@@ -804,7 +975,7 @@ export default function ProductDetailsForm({
       brandData: selectedBrand
         ? { type: "existing", brandId: selectedBrand.id }
         : null,
-      categories: [{ id: category.id }],
+      categories: [{ id: localCategory.id }],
       schoolData: isSchoolFlow
         ? {
             schoolId: schoolId,
@@ -816,16 +987,29 @@ export default function ProductDetailsForm({
 
     setSubmitting(true);
     try {
-      await productService.createProduct(payload);
-      toast({
-        title: "Product created successfully",
-        variant: "success",
-      });
+      if (isEditMode) {
+        await productService.updateComprehensiveProduct(productId, payload);
+        toast({
+          title: "Product updated successfully",
+          variant: "success",
+        });
+      } else {
+        await productService.createProduct(payload);
+        toast({
+          title: "Product created successfully",
+          variant: "success",
+        });
+      }
       onSuccess();
     } catch (error) {
-      console.error("Product creation failed:", error);
+      console.error(
+        isEditMode ? "Product update failed:" : "Product creation failed:",
+        error,
+      );
       toast({
-        title: "Failed to create product",
+        title: isEditMode
+          ? "Failed to update product"
+          : "Failed to create product",
         description: error.response?.data?.message || error.message,
         variant: "destructive",
       });
@@ -868,14 +1052,15 @@ export default function ProductDetailsForm({
                     : "Auto-generated from title"
                 }
               />
-              <Input
-                label="City"
-                value={formData.city}
-                onChange={(e) => updateField("city", e.target.value)}
-                placeholder="e.g. Delhi"
-                disabled={!!cityToUse}
-                helperText={cityToUse ? "Auto-filled from warehouse" : ""}
-              />
+              <div className={disabledBlurClass}>
+                <Input
+                  label="City"
+                  value={formData.city}
+                  onChange={(e) => updateField("city", e.target.value)}
+                  placeholder="e.g. Delhi"
+                  disabled={isEditMode}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1307,7 +1492,7 @@ export default function ProductDetailsForm({
                         <th className="px-4 py-3 text-left font-medium w-24">
                           Compare At (₹)
                         </th>
-                        <th className="px-4 py-3 text-left font-medium w-20">
+                        <th className="px-4 py-3 text-left font-medium w-24">
                           % Disc
                         </th>
                         <th className="px-4 py-3 text-left font-medium w-24">
@@ -1426,7 +1611,7 @@ export default function ProductDetailsForm({
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* School Name (read-only) */}
-                <div>
+                <div className={disabledBlurClass}>
                   <label className="mb-1 block text-xs font-medium text-slate-500">
                     School
                   </label>
@@ -1437,7 +1622,7 @@ export default function ProductDetailsForm({
                 </div>
 
                 {/* Product Type (read-only) */}
-                <div>
+                <div className={disabledBlurClass}>
                   <label className="mb-1 block text-xs font-medium text-slate-500">
                     Product Type
                   </label>
@@ -1448,7 +1633,7 @@ export default function ProductDetailsForm({
 
                 {/* City (read-only) */}
                 {prefilledCity && (
-                  <div>
+                  <div className={disabledBlurClass}>
                     <label className="mb-1 block text-xs font-medium text-slate-500">
                       City
                     </label>
@@ -1536,7 +1721,7 @@ export default function ProductDetailsForm({
                 <div>
                   <p className="text-slate-500 text-xs">Category</p>
                   <p className="font-medium text-slate-900">
-                    {category?.name || "—"}
+                    {localCategory?.name || "—"}
                   </p>
                 </div>
               </div>
