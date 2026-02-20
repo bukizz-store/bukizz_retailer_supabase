@@ -74,6 +74,14 @@ export const productService = {
     return response.data;
   },
 
+  updateComprehensiveProduct: async (id, productData) => {
+    const response = await apiClient.put(
+      `/products/${id}/comprehensive`,
+      productData,
+    );
+    return response.data;
+  },
+
   createBrand: async (brandData) => {
     const response = await apiClient.post("/brands", brandData);
     return response.data;
@@ -81,6 +89,11 @@ export const productService = {
 
   getProductById: async (id) => {
     const response = await apiClient.get(`/products/${id}`);
+    return response.data;
+  },
+
+  getComprehensiveProduct: async (id) => {
+    const response = await apiClient.get(`/products/${id}/comprehensive`);
     return response.data;
   },
 
@@ -96,7 +109,14 @@ export const productService = {
    * @param {string}  operation  – "set" | "increment" | "decrement"
    */
   updateVariantStock: async (variantId, { quantity, operation = "set" }) => {
-    console.log('[updateVariantStock] variantId:', variantId, 'quantity:', quantity, 'operation:', operation);
+    console.log(
+      "[updateVariantStock] variantId:",
+      variantId,
+      "quantity:",
+      quantity,
+      "operation:",
+      operation,
+    );
     const response = await apiClient.patch(
       `/products/variants/${variantId}/stock`,
       { quantity, operation },
@@ -109,11 +129,13 @@ export const productService = {
    * @param {Array<{ variantId: string, quantity: number, operation: string }>} updates
    */
   bulkUpdateVariantStock: async (updates) => {
-    console.log('[bulkUpdateVariantStock] updates:', JSON.stringify(updates, null, 2));
-    const response = await apiClient.put(
-      "/products/variants/bulk-stock",
-      { updates },
+    console.log(
+      "[bulkUpdateVariantStock] updates:",
+      JSON.stringify(updates, null, 2),
     );
+    const response = await apiClient.put("/products/variants/bulk-stock", {
+      updates,
+    });
     return response.data;
   },
 };

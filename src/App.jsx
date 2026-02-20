@@ -104,6 +104,10 @@ export default function App() {
           <Route path="inventory/general" element={<GeneralStoreLayout />}>
             <Route index element={<GeneralStorePage />} />
             <Route path="add" element={<AddProductPage />} />
+            <Route
+              path="edit/:productId"
+              element={<AddProductPage isEditMode={true} />}
+            />
             <Route path=":productId" element={<ProductDetailPage />} />
           </Route>
           <Route path="inventory/health" element={<InventoryHealthPage />} />
@@ -115,6 +119,10 @@ export default function App() {
           <Route
             path="inventory/schools/:schoolId/add"
             element={<AddSchoolProductPage />}
+          />
+          <Route
+            path="inventory/schools/:schoolId/edit/:productId"
+            element={<AddSchoolProductPage isEditMode={true} />}
           />
           <Route path="orders" element={<OrdersLayout />}>
             <Route index element={<ActiveOrdersPage />} />
