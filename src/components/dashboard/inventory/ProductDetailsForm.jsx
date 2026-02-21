@@ -885,15 +885,15 @@ export default function ProductDetailsForm({
     });
 
     // Find highest discount variant for compare_price in metadata
-    let comparePriceMeta = parseFloat(formData.compareAtPrice) || null;
-    if (variants.length > 0) {
-      const maxDiscountVariant = [...variants].sort(
-        (a, b) => (b.discount || 0) - (a.discount || 0),
-      )[0];
-      if (maxDiscountVariant?.compareAtPrice) {
-        comparePriceMeta = maxDiscountVariant.compareAtPrice;
-      }
-    }
+    // let comparePriceMeta = parseFloat(formData.compareAtPrice) || null;
+    // if (variants.length > 0) {
+    //   const maxDiscountVariant = [...variants].sort(
+    //     (a, b) => (b.discount || 0) - (a.discount || 0),
+    //   )[0];
+    //   if (maxDiscountVariant?.compareAtPrice) {
+    //     comparePriceMeta = maxDiscountVariant.compareAtPrice;
+    //   }
+    // }
 
     // Build category attributes metadata
     const categoryAttrsObj = {};
@@ -931,7 +931,7 @@ export default function ProductDetailsForm({
         highlight: highlightObj,
         metadata: {
           categoryAttributes: categoryAttrsObj,
-          compare_price: comparePriceMeta,
+          compare_price: formData.compareAtPrice,
         },
         isActive: false,
       },

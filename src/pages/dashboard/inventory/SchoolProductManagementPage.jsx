@@ -492,6 +492,7 @@ export default function SchoolProductManagementPage() {
                             onClick={() =>
                               navigate(
                                 `/dashboard/inventory/general/${product.id}`,
+                                { state: { schoolId } },
                               )
                             }
                             className="flex-1 rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors"
@@ -619,6 +620,7 @@ export default function SchoolProductManagementPage() {
                                 onClick={() =>
                                   navigate(
                                     `/dashboard/inventory/general/${product.id}`,
+                                    { state: { schoolId } },
                                   )
                                 }
                                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
