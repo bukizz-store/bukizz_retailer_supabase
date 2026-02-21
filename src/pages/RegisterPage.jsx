@@ -34,6 +34,8 @@ import {
   AlertCircle,
   ShieldCheck,
   LogOut,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { EmailOtpModal } from "@/components/onboarding/EmailOtpModal";
 
@@ -71,7 +73,10 @@ const textToImageFile = (text, filename) => {
 export default function RegisterPage() {
   const location = useLocation();
   const resumeOnboarding = location.state?.resumeOnboarding || false;
-  const resumeStep = location.state?.resumeStep || null; // 'business' if warehouse is missing
+  const resumeStep = location.state?.resumeStep || null;
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  // 'business' if warehouse is missing
 
   // Steps: 'mobile' -> 'email' (ID & Signature) -> 'business' (Store & Pickup — final step)
   // If resuming onboarding:
@@ -572,18 +577,44 @@ export default function RegisterPage() {
                 }
               />
               <Input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="Create Password"
                 {...registerForm.register("password")}
                 error={registerForm.formState.errors.password?.message}
                 leftElement={<Lock className="w-5 h-5 text-[#878787]" />}
+                rightElement={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-[#878787] hover:text-[#2874F0] focus:outline-none"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                }
               />
               <Input
-                type="password"
+                type={showConfirmPassword ? "text" : "password"}
                 placeholder="Confirm Password"
                 {...registerForm.register("confirmPassword")}
                 error={registerForm.formState.errors.confirmPassword?.message}
                 leftElement={<Lock className="w-5 h-5 text-[#878787]" />}
+                rightElement={
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="text-[#878787] hover:text-[#2874F0] focus:outline-none"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                }
               />
               <p className="text-xs text-[#878787]">
                 By continuing, I agree to Bukizz&apos;s{" "}
