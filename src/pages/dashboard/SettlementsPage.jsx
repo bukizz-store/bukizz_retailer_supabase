@@ -91,7 +91,8 @@ export default function SettlementsPage() {
     },
     {
       title: "To Be Settled",
-      value: "₹6.9K",
+      // value: "₹0.0K",
+      value: "NA",
       subtext: "Incl. return deductions",
       icon: Wallet,
       iconBg: "bg-amber-50",
