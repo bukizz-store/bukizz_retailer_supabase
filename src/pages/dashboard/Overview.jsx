@@ -1,15 +1,11 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import SchoolRequestModal from "@/components/dashboard/SchoolRequestModal";
 import useSchoolStore from "@/store/schoolStore";
 import { useWarehouse } from "@/context/WarehouseContext";
-import {
-  mockDashboardStats,
-  mockActionItems,
-  mockOrders,
-} from "@/data/mockData";
+import apiClient from "@/lib/apiClient";
 import {
   TrendingUp,
   ShoppingCart,
@@ -20,68 +16,92 @@ import {
   ArrowRight,
   ChevronRight,
   Plus,
+  Loader2,
 } from "lucide-react";
-
-const statCards = [
-  {
-    title: "Total Sales",
-    value: `₹${(mockDashboardStats.totalRevenue / 1000).toFixed(1)}K`,
-    change: "+12.5%",
-    changeType: "positive",
-    icon: TrendingUp,
-    iconBg: "bg-emerald-100",
-    iconColor: "text-emerald-600",
-    link: null,
-  },
-  {
-    title: "Active Orders",
-    value: mockDashboardStats.totalOrders.toString(),
-    change: "+3 today",
-    changeType: "positive",
-    icon: ShoppingCart,
-    iconBg: "bg-blue-100",
-    iconColor: "text-blue-600",
-    link: "/dashboard/orders",
-  },
-  {
-    title: "Low Stock Alerts",
-    value: mockDashboardStats.pendingActions.toString(),
-    change: "Need attention",
-    changeType: "warning",
-    icon: AlertTriangle,
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-600",
-    link: "/dashboard/inventory/health",
-  },
-  {
-    title: "Active Schools",
-    value: mockDashboardStats.schoolPartnerships.toString(),
-    change: "1 pending",
-    changeType: "neutral",
-    icon: GraduationCap,
-    iconBg: "bg-violet-100",
-    iconColor: "text-violet-600",
-    link: "/dashboard/inventory/schools",
-  },
-];
 
 export default function Overview() {
   const { activeWarehouse } = useWarehouse();
   const { openRequestModal } = useSchoolStore();
+
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchOverview = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await apiClient.get("/retailer/dashboard/overview");
+        setData(res.data?.data || null);
+      } catch (err) {
+        console.error("Failed to fetch dashboard overview:", err);
+        setError("Failed to load dashboard data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOverview();
+  }, []);
 
   const handleRequestSchoolAccess = () => {
     const city = activeWarehouse?.address?.city || activeWarehouse?.city || "";
     openRequestModal(city);
   };
 
+  // Build stat cards from API data
+  const statCards = [
+    {
+      title: "Total Sales",
+      value: data
+        ? `₹${data.totalSales >= 1000 ? `${(data.totalSales / 1000).toFixed(1)}K` : data.totalSales.toFixed(0)}`
+        : "—",
+      change: null,
+      changeType: "positive",
+      icon: TrendingUp,
+      iconBg: "bg-emerald-100",
+      iconColor: "text-emerald-600",
+      link: null,
+    },
+    {
+      title: "Active Orders",
+      value: data ? data.activeOrders.toString() : "—",
+      change: null,
+      changeType: "positive",
+      icon: ShoppingCart,
+      iconBg: "bg-blue-100",
+      iconColor: "text-blue-600",
+      link: "/dashboard/orders",
+    },
+    {
+      title: "Low Stock Alerts",
+      value: data ? data.lowStockVariants.toString() : "—",
+      change: data?.lowStockVariants > 0 ? "Need attention" : "All good",
+      changeType: data?.lowStockVariants > 0 ? "warning" : "positive",
+      icon: AlertTriangle,
+      iconBg: "bg-amber-100",
+      iconColor: "text-amber-600",
+      link: "/dashboard/inventory/health",
+    },
+    {
+      title: "Active Schools",
+      value: data ? data.activeSchools.toString() : "—",
+      change: data ? `${data.pendingSchools} pending` : null,
+      changeType: "neutral",
+      icon: GraduationCap,
+      iconBg: "bg-violet-100",
+      iconColor: "text-violet-600",
+      link: "/dashboard/inventory/schools",
+    },
+  ];
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Welcome back 👋
-          </h1>
+          <h1 className="text-2xl font-bold text-slate-900">Welcome back 👋</h1>
           <p className="mt-1 text-sm text-slate-500">
             Here&apos;s what&apos;s happening with your store today.
           </p>
@@ -100,6 +120,13 @@ export default function Overview() {
         </div>
       </div>
 
+      {/* Error State */}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat, index) => {
@@ -115,21 +142,27 @@ export default function Overview() {
                     {stat.title}
                   </p>
                   <p className="text-3xl font-bold text-slate-900">
-                    {stat.value}
+                    {loading ? (
+                      <span className="inline-block h-8 w-16 animate-pulse rounded bg-slate-200" />
+                    ) : (
+                      stat.value
+                    )}
                   </p>
                   <p
                     className={`flex items-center gap-1 text-sm ${
-                      stat.changeType === "positive"
-                        ? "text-emerald-600"
-                        : stat.changeType === "warning"
-                          ? "text-amber-600"
-                          : "text-slate-500"
+                      !stat.change
+                        ? "invisible"
+                        : stat.changeType === "positive"
+                          ? "text-emerald-600"
+                          : stat.changeType === "warning"
+                            ? "text-amber-600"
+                            : "text-slate-500"
                     }`}
                   >
                     {stat.changeType === "positive" && (
                       <ArrowUpRight className="h-4 w-4" />
                     )}
-                    {stat.change}
+                    {stat.change || "—"}
                   </p>
                 </div>
                 <div className={`rounded-lg p-3 ${stat.iconBg}`}>
@@ -151,79 +184,8 @@ export default function Overview() {
 
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Action Center */}
-        <div className="lg:col-span-2">
-          <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-slate-900">
-                Action Center
-              </h2>
-              <Link
-                to="/dashboard/notifications"
-                className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
-              >
-                View all <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
-            <div className="divide-y divide-slate-100 p-4">
-              {mockActionItems.slice(0, 4).map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-start gap-4 rounded-lg p-4 transition-colors hover:bg-slate-50"
-                >
-                  <div
-                    className={`flex-shrink-0 rounded-lg p-2.5 ${
-                      item.type === "school_request"
-                        ? "bg-violet-100"
-                        : item.type === "product_approval"
-                          ? "bg-blue-100"
-                          : item.type === "low_stock"
-                            ? "bg-amber-100"
-                            : "bg-slate-100"
-                    }`}
-                  >
-                    {item.type === "school_request" && (
-                      <GraduationCap className="h-5 w-5 text-violet-600" />
-                    )}
-                    {item.type === "product_approval" && (
-                      <Package className="h-5 w-5 text-blue-600" />
-                    )}
-                    {item.type === "low_stock" && (
-                      <AlertTriangle className="h-5 w-5 text-amber-600" />
-                    )}
-                    {item.type === "order" && (
-                      <ShoppingCart className="h-5 w-5 text-slate-600" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium text-slate-900">{item.title}</p>
-                      <Badge
-                        variant={
-                          (item.urgency || "medium") === "high"
-                            ? "pending"
-                            : (item.urgency || "medium") === "medium"
-                              ? "warning"
-                              : "default"
-                        }
-                        dot
-                      >
-                        {item.urgency || "medium"}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {item.description}
-                    </p>
-                  </div>
-                  <ArrowRight className="h-5 w-5 flex-shrink-0 text-slate-400" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Orders */}
-        <div className="lg:col-span-1">
+        {/* Recent Orders (now takes full width since Action Center used mock data) */}
+        <div className="lg:col-span-3">
           <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
               <h2 className="text-lg font-semibold text-slate-900">
@@ -237,40 +199,53 @@ export default function Overview() {
               </Link>
             </div>
             <div className="divide-y divide-slate-100 p-4">
-              {mockOrders.slice(0, 4).map((order) => (
-                <div
-                  key={order.id}
-                  className="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-slate-50"
-                >
-                  <div
-                    className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${
-                      order.orderType === "school_bundle"
-                        ? "bg-violet-100"
-                        : "bg-slate-100"
-                    }`}
-                  >
-                    {order.orderType === "school_bundle" ? (
-                      <GraduationCap className="h-5 w-5 text-violet-600" />
-                    ) : (
-                      <Package className="h-5 w-5 text-slate-600" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-900">
-                      {order.id}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      ₹{order.totalAmount.toLocaleString()}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={order.status}
-                    className="flex-shrink-0 text-xs"
-                  >
-                    {order.status}
-                  </Badge>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                  <span className="ml-2 text-sm text-slate-500">
+                    Loading orders...
+                  </span>
                 </div>
-              ))}
+              ) : data?.recentOrders?.length > 0 ? (
+                data.recentOrders.map((order) => (
+                  <Link
+                    key={order.id}
+                    to={`/dashboard/orders/${order.id}`}
+                    className="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-slate-50"
+                  >
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100">
+                      <Package className="h-5 w-5 text-slate-600" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-900">
+                        {order.orderNumber || order.id}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>
+                          ₹{parseFloat(order.totalPrice || 0).toLocaleString()}
+                        </span>
+                        <span>·</span>
+                        <span>
+                          {order.itemCount} item
+                          {order.itemCount !== 1 ? "s" : ""}
+                        </span>
+                        <span>·</span>
+                        <span>{order.customerName}</span>
+                      </div>
+                    </div>
+                    <Badge
+                      variant={order.status}
+                      className="flex-shrink-0 text-xs"
+                    >
+                      {order.status}
+                    </Badge>
+                  </Link>
+                ))
+              ) : (
+                <div className="py-8 text-center text-sm text-slate-500">
+                  No orders yet.
+                </div>
+              )}
             </div>
           </div>
         </div>
