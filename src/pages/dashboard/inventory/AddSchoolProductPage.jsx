@@ -78,7 +78,8 @@ export default function AddSchoolProductPage({ isEditMode = false }) {
       setLoading(true);
       try {
         // Step 1: Get root categories, find "School"
-        const rootData = await productService.getCategories({});
+        // set a param schoolCat=True
+        const rootData = await productService.getCategories({ schoolCat: true });
         const rootCats = rootData?.categories || rootData || [];
         const schoolRoot = rootCats.find(
           (c) => c.name?.toLowerCase() === "school",
@@ -94,6 +95,7 @@ export default function AddSchoolProductPage({ isEditMode = false }) {
         // Step 2: Get subcategories of School
         const subData = await productService.getCategories({
           parentId: schoolRoot.id,
+          schoolCat: true,
         });
         const subCats = subData?.categories || subData || [];
 
