@@ -147,8 +147,10 @@ export default function ActiveOrdersPage() {
     };
 
     // ── Actions ──
-    const handleConfirmOrder = async (orderId) => {
-        const result = await updateOrderStatus(orderId, 'processed', 'Confirmed by retailer');
+    const handleUpdateStatus = async (orderId, currentStatus) => {
+        const nextStatus = currentStatus === 'initialized' ? 'processed' : 'shipped';
+        const note = currentStatus === 'initialized' ? 'Confirmed by retailer' : 'Shipped by retailer';
+        const result = await updateOrderStatus(orderId, nextStatus, note);
         if (result.success) fetchOrders(warehouseId);
     };
 
@@ -250,11 +252,14 @@ export default function ActiveOrdersPage() {
         }
     };
 
-    const handleBulkConfirm = async () => {
+    const handleBulkUpdateStatus = async () => {
         for (const orderId of selectedOrders) {
             const order = orders.find((o) => o.id === orderId);
-            if (order && getOrderStatus(order) === 'initialized') {
-                await updateOrderStatus(orderId, 'processed', 'Bulk confirmed by retailer');
+            const status = getOrderStatus(order);
+            if (order && (status === 'initialized' || status === 'processed')) {
+                const nextStatus = status === 'initialized' ? 'processed' : 'shipped';
+                const note = status === 'initialized' ? 'Bulk confirmed by retailer' : 'Bulk shipped by retailer';
+                await updateOrderStatus(orderId, nextStatus, note);
             }
         }
         setSelectedOrders([]);
@@ -324,8 +329,8 @@ export default function ActiveOrdersPage() {
             {selectedOrders.length > 0 && (
                 <div className="flex items-center gap-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
                     <span className="text-sm font-medium text-blue-700">{selectedOrders.length} selected</span>
-                    <Button variant="outline" size="sm" onClick={handleBulkConfirm} disabled={isUpdatingStatus}>
-                        <CheckCheck className="h-4 w-4" />Mark as Confirmed
+                    <Button variant="outline" size="sm" onClick={handleBulkUpdateStatus} disabled={isUpdatingStatus}>
+                        <CheckCheck className="h-4 w-4" />Update Selected Status
                     </Button>
                     <Button variant="outline" size="sm" onClick={handleBulkPrintLabels}>
                         <Printer className="h-4 w-4" />Print Labels
@@ -378,7 +383,7 @@ export default function ActiveOrdersPage() {
                                         order={order}
                                         isSelected={selectedOrders.includes(order.id)}
                                         onToggleSelect={() => toggleOrderSelection(order.id)}
-                                        onConfirm={() => handleConfirmOrder(order.id)}
+                                        onConfirm={() => handleUpdateStatus(order.id, status)}
                                         onPrintLabel={() => handlePrintLabel(order.id)}
                                         onViewOrder={() => navigate(`/dashboard/orders/${order.id}`)}
                                         isUpdating={isUpdatingStatus}
@@ -504,14 +509,14 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
                         <Printer className="h-4 w-4" />
                     </Button>
                     <Button variant="outline" size="sm" onClick={onConfirm}
-                        disabled={isUpdating || status !== 'initialized'}
-                        title={status !== 'initialized' ? `Already ${statusLabelMap[status] || status}` : 'Mark as Confirmed'}
+                        disabled={isUpdating || !['initialized', 'processed'].includes(status)}
+                        title={status === 'initialized' ? 'Confirm Order' : (status === 'processed' ? 'Ship Order' : `Already ${statusLabelMap[status] || status}`)}
                         className={cn(
-                            status === 'initialized'
+                            (status === 'initialized' || status === 'processed')
                                 ? 'text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700'
                                 : 'text-slate-400 cursor-not-allowed'
                         )}>
-                        <CheckCircle className="h-4 w-4" />
+                        {status === 'processed' ? <Truck className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
                     </Button>
                 </div>
             </td>
