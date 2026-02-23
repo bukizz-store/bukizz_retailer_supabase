@@ -13,11 +13,13 @@ export const productService = {
     search = "",
     categoryId = "",
     status = "",
+    productType = "",
   } = {}) => {
     const params = { page, limit };
     if (search) params.search = search;
     if (categoryId && categoryId !== "all") params.categoryId = categoryId;
     if (status) params.status = status;
+    if (productType) params.productType = productType;
 
     const headers = {};
     if (warehouseId) {
