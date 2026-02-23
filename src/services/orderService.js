@@ -6,14 +6,21 @@ export const orderService = {
    * Fetches orders for a specific warehouse.
    * Supports pagination, status filtering, and search.
    */
-  getOrders: async (warehouseId, { page = 1, limit = 10, status = "", search = "" } = {}) => {
-    if (!warehouseId) throw new Error("Warehouse ID is required to fetch orders.");
+  getOrders: async (
+    warehouseId,
+    { page = 1, limit = 10, status = "", search = "" } = {},
+  ) => {
+    if (!warehouseId)
+      throw new Error("Warehouse ID is required to fetch orders.");
 
     const params = { page, limit };
     if (status && status !== "all") params.status = status;
     if (search) params.search = search;
 
-    const response = await apiClient.get(`/retailer/orders/warehouse/${warehouseId}`, { params });
+    const response = await apiClient.get(
+      `/retailer/orders/warehouse/${warehouseId}`,
+      { params },
+    );
     return response.data;
   },
 
@@ -23,7 +30,9 @@ export const orderService = {
    */
   getOrdersByStatus: async (status, { page = 1, limit = 10 } = {}) => {
     const params = { page, limit };
-    const response = await apiClient.get(`/orders/admin/status/${status}`, { params });
+    const response = await apiClient.get(`/orders/admin/status/${status}`, {
+      params,
+    });
     return response.data;
   },
 
@@ -33,6 +42,15 @@ export const orderService = {
    */
   getOrderById: async (orderId) => {
     const response = await apiClient.get(`/orders/${orderId}`);
+    return response.data;
+  },
+
+  /**
+   * GET /orders//warehouse/items/:itemId
+   * Fetches full details of a single order.
+   */
+  getOrderItemsById: async (itemId) => {
+    const response = await apiClient.get(`/orders/warehouse/items/${itemId}`);
     return response.data;
   },
 
@@ -55,7 +73,7 @@ export const orderService = {
   updateOrderItemStatus: async (orderId, itemId, { status, note = "" }) => {
     const response = await apiClient.put(
       `/orders/${orderId}/items/${itemId}/status`,
-      { status, note }
+      { status, note },
     );
     return response.data;
   },

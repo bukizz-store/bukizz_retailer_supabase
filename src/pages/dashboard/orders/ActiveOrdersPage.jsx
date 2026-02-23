@@ -385,7 +385,7 @@ export default function ActiveOrdersPage() {
                                         onToggleSelect={() => toggleOrderSelection(order.id)}
                                         onConfirm={() => handleUpdateStatus(order.id, status)}
                                         onPrintLabel={() => handlePrintLabel(order.id)}
-                                        onViewOrder={() => navigate(`/dashboard/orders/${order.id}`)}
+                                        onViewOrder={() => navigate(`/dashboard/orders/${order.items[0].id}`)}
                                         isUpdating={isUpdatingStatus}
                                     />
                                 ))
@@ -424,6 +424,7 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
     const shortId = shortenOrderId(order);
     const status = getOrderStatus(order);
     // Detect school/bookset orders from items or metadata
+    console.log(order);
     const isSchoolOrder = order.items?.some(
         (item) => item.productSnapshot?.productType === 'bookset' || item.productSnapshot?.productType === 'uniform'
     ) || order.metadata?.orderSummary?.items?.some(
@@ -453,7 +454,7 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
 
             {/* Order ID */}
             <td className="px-6 py-4">
-                <p className="font-mono text-sm font-medium text-blue-600 truncate max-w-[120px]" title={order.id}>{shortId}</p>
+                <p className="font-mono text-sm font-medium text-blue-600 truncate max-w-[120px]" title={order.items[0].id}>{order.items[0].dispatchId}</p>
             </td>
 
             {/* Order Details */}
