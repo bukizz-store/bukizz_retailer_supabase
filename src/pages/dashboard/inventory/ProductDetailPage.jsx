@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
   ChevronRight,
@@ -23,7 +23,10 @@ import { cn } from "@/lib/utils";
 export default function ProductDetailPage() {
   const { productId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
+  const stateSchoolId = location.state?.schoolId;
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -162,9 +165,23 @@ export default function ProductDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() =>
-              navigate(`/dashboard/inventory/general/edit/${productId}`)
-            }
+            onClick={() => {
+              console.log(product.product_type);
+              const schoolId =
+                stateSchoolId ||
+                product.schoolData?.schoolId ||
+                product.schoolInfo?.schoolId ||
+                product.school_id;
+
+              if (product.product_type === "general" || !schoolId) {
+                navigate(`/dashboard/inventory/general/edit/${productId}`);
+              } else {
+                console.log(schoolId);
+                navigate(
+                  `/dashboard/inventory/schools/${schoolId}/edit/${productId}`,
+                );
+              }
+            }}
           >
             <Edit2 className="h-4 w-4 mr-1.5" />
             Edit

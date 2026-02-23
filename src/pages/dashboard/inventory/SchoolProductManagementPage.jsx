@@ -488,10 +488,31 @@ export default function SchoolProductManagementPage() {
                           </div>
                         )}
                         <div className="flex items-center gap-1 mt-3 pt-3 border-t border-slate-100">
-                          <button className="flex-1 rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors">
+                          <button
+                            onClick={() =>
+                              navigate(
+                                `/dashboard/inventory/general/${product.id}`,
+                                { state: { schoolId } },
+                              )
+                            }
+                            className="flex-1 rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors"
+                          >
                             <Eye className="h-4 w-4 mx-auto" />
                           </button>
-                          <button className="flex-1 rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors">
+                          <button
+                            onClick={() =>
+                              navigate(
+                                `/dashboard/inventory/schools/${schoolId}/edit/${product.id}`,
+                                {
+                                  state: {
+                                    allowedTypes,
+                                    schoolName: school.name || "School",
+                                  },
+                                },
+                              )
+                            }
+                            className="flex-1 rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors"
+                          >
                             <Edit className="h-4 w-4 mx-auto" />
                           </button>
                           <button className="flex-1 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors">
@@ -595,10 +616,31 @@ export default function SchoolProductManagementPage() {
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-end gap-1">
-                              <button className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                              <button
+                                onClick={() =>
+                                  navigate(
+                                    `/dashboard/inventory/general/${product.id}`,
+                                    { state: { schoolId } },
+                                  )
+                                }
+                                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                              >
                                 <Eye className="h-4 w-4" />
                               </button>
-                              <button className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                              <button
+                                onClick={() =>
+                                  navigate(
+                                    `/dashboard/inventory/schools/${schoolId}/edit/${product.id}`,
+                                    {
+                                      state: {
+                                        allowedTypes,
+                                        schoolName: school.name || "School",
+                                      },
+                                    },
+                                  )
+                                }
+                                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                              >
                                 <Edit className="h-4 w-4" />
                               </button>
                             </div>

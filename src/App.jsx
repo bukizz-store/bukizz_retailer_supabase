@@ -40,6 +40,7 @@ import ReturnsPage from "./pages/dashboard/orders/ReturnsPage";
 import WarehouseManagementPage from "./pages/dashboard/settings/WarehouseManagementPage";
 import ProfileSettingsPage from "./pages/dashboard/settings/ProfileSettingsPage";
 import NotificationsPage from "./pages/dashboard/NotificationsPage";
+import SettlementsPage from "./pages/dashboard/SettlementsPage";
 
 export default function App() {
   const initialize = useAuthStore((state) => state.initialize);
@@ -104,6 +105,10 @@ export default function App() {
           <Route path="inventory/general" element={<GeneralStoreLayout />}>
             <Route index element={<GeneralStorePage />} />
             <Route path="add" element={<AddProductPage />} />
+            <Route
+              path="edit/:productId"
+              element={<AddProductPage isEditMode={true} />}
+            />
             <Route path=":productId" element={<ProductDetailPage />} />
           </Route>
           <Route path="inventory/health" element={<InventoryHealthPage />} />
@@ -116,6 +121,10 @@ export default function App() {
             path="inventory/schools/:schoolId/add"
             element={<AddSchoolProductPage />}
           />
+          <Route
+            path="inventory/schools/:schoolId/edit/:productId"
+            element={<AddSchoolProductPage isEditMode={true} />}
+          />
           <Route path="orders" element={<OrdersLayout />}>
             <Route index element={<ActiveOrdersPage />} />
             <Route path=":orderId" element={<OrderViewPage />} />
@@ -123,6 +132,7 @@ export default function App() {
             <Route path="returns" element={<ReturnsPage />} />
           </Route>
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="settlements" element={<SettlementsPage />} />
           <Route
             path="settings/warehouses"
             element={<WarehouseManagementPage />}
