@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
 import { orderService } from '@/services/orderService';
+import { useWarehouse } from '@/context/WarehouseContext';
+import useAuthStore from '@/store/authStore';
 import {
     ArrowLeft, Loader2, AlertCircle, Package, Printer,
     CheckCircle, MapPin, Phone, Mail, User, CreditCard,
@@ -83,6 +85,8 @@ function formatCurrency(amount) {
 export default function OrderViewPage() {
     const { orderId } = useParams();
     const navigate = useNavigate();
+    const { activeWarehouse } = useWarehouse();
+    const { user: authUser } = useAuthStore();
 
     const [order, setOrder] = useState(null);
     const [user, setUser] = useState(null);
@@ -129,18 +133,23 @@ export default function OrderViewPage() {
     }, [fetchOrder]);
 
     // ── Confirm order ──
-    const handleConfirmOrder = async () => {
-        if (!order || getOrderStatus(order) !== 'initialized') return;
+    const handleUpdateStatus = async () => {
+        const currentStatus = getOrderStatus(order);
+        if (!order || !['initialized', 'processed'].includes(currentStatus)) return;
+
+        const nextStatus = currentStatus === 'initialized' ? 'processed' : 'shipped';
+        const note = currentStatus === 'initialized' ? 'Confirmed by retailer' : 'Shipped by retailer';
+
         setIsUpdating(true);
         try {
             await orderService.updateOrderStatus(order.id, {
-                status: 'processed',
-                note: 'Confirmed by retailer',
+                status: nextStatus,
+                note: note,
             });
             setOrder((prev) => ({
                 ...prev,
-                status: 'processed',
-                items: (prev.items || []).map((item) => ({ ...item, status: 'processed' })),
+                status: nextStatus,
+                items: (prev.items || []).map((item) => ({ ...item, status: nextStatus })),
             }));
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to update status.');
@@ -152,31 +161,98 @@ export default function OrderViewPage() {
     // ── Print label ──
     const handlePrintLabel = () => {
         if (!order) return;
-        const addr = order.shippingAddress || {};
+        const address = order.shippingAddress || {};
+        const addressLines = [
+            `Student: ${address.studentName || '—'}`,
+            " ",
+            address.recipientName || order.contactEmail || 'Customer',
+            address.line1,
+            address.line2,
+            `${address.city || ''}${address.city && address.state ? ', ' : ''}${address.state || ''} ${address.postalCode || ''}`.trim(),
+            order.contactPhone ? `Phone: ${order.contactPhone}` : ''
+        ].filter(Boolean).join('<br/>');
+
+        const retailerName = authUser?.fullName || authUser?.name || 'Retailer Name';
+        const warehouseName = activeWarehouse?.name || 'Warehouse Name';
+        const qrData = `${order.items?.[0]?.id || ''} , ${order.id}`;
+
         const labelContent = `
             <html><head><title>Label — ${shortenOrderId(order)}</title>
             <style>
-                body{font-family:Arial,sans-serif;padding:40px}
-                .label{border:2px solid #000;padding:24px;max-width:400px}
-                .label h2{margin:0 0 12px;font-size:18px}
-                .label p{margin:4px 0;font-size:14px}
-                .order-id{font-size:16px;font-weight:bold;letter-spacing:1px}
-                .divider{border-top:1px dashed #999;margin:12px 0}
-            </style></head><body><div class="label">
-                <p class="order-id">Order: ${shortenOrderId(order)}</p>
-                <div class="divider"></div>
-                <h2>Ship To:</h2>
-                <p><strong>${addr.recipientName || order.contactEmail || 'Customer'}</strong></p>
-                <p>${addr.line1 || ''}</p>
-                ${addr.line2 ? `<p>${addr.line2}</p>` : ''}
-                <p>${addr.city || ''}, ${addr.state || ''} ${addr.postalCode || ''}</p>
-                ${order.contactPhone ? `<p>Phone: ${order.contactPhone}</p>` : ''}
-                <div class="divider"></div>
-                <p>Amount: ${formatCurrency(order.totalAmount)}</p>
-                <p>Payment: ${(order.paymentMethod || 'N/A').toUpperCase()}</p>
-            </div></body></html>`;
-        const w = window.open('', '_blank', 'width=500,height=600');
-        if (w) { w.document.write(labelContent); w.document.close(); w.focus(); w.print(); }
+                body { font-family: Arial, sans-serif; padding: 20px; display: flex; justify-content: center; }
+                .label-box { border: 2px solid #000; width: 100%; max-width: 550px; }
+                .header-row { display: flex; border-bottom: 2px solid #000; }
+                .header-left { flex: 1; padding: 16px; border-right: 2px solid #000; }
+                .header-right { flex: 1; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+                .logo-row { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
+                .body-section { padding: 16px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+                th, td { border: 1px solid #000; padding: 10px; text-align: left; }
+                th { background-color: #f9f9f9; text-align: center; }
+                .text-bold { font-weight: bold; }
+                .mb-1 { margin-bottom: 4px; }
+                .mb-2 { margin-bottom: 8px; }
+                .mb-3 { margin-bottom: 12px; }
+                .mb-4 { margin-bottom: 16px; }
+            </style></head><body>
+            <div class="label-box">
+                <div class="header-row">
+                    <div class="header-left">
+                        <div class="text-bold">Delivered By:</div>
+                        <div class="logo-row">
+                            <img src="${window.location.origin}/logo.svg" alt="bukizz" style="height: 32px;" onerror="this.style.display='none'" />
+                        </div>
+                        <div class="text-bold mb-1">Fulfilled By:</div>
+                        <div>${retailerName} ,<br/>${warehouseName}</div>
+                    </div>
+                    <div class="header-right">
+                        <div class="mb-2">QR</div>
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrData)}" alt="QR Code" style="width: 120px; height: 120px; margin-bottom: 8px;"/>
+                    </div>
+                </div>
+                <div class="body-section">
+                    <div class="text-bold mb-1">Shipping Address:</div>
+                    <div class="mb-4">${addressLines}<br/></div>
+                    
+                    <div class="text-bold mb-3">Order Number: ${shortenOrderId(order)}</div>
+                    
+                    <div class="text-bold mb-4">Delivery Date: ${order.deliveryDate || 'N/A'}</div>
+                    
+                    <div class="text-bold mb-2">Details:</div>
+                    <table class="mb-4">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Amount</th>
+                                <th>Payment Method</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${order.items?.map(item => `
+                            <tr>
+                                <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ''}</td>
+                                <td style="text-align: center;">${order.totalAmount || item.totalPrice || item.unitPrice * (item.quantity || 1)}</td>
+                                <td style="text-align: center;">Prepaid</td>
+                            </tr>
+                            `).join('') || ''}
+                        </tbody>
+                    </table>
+                    
+                    <div class="mb-2" style="margin-top: 32px;">
+                        Payment Due on Receipt: ${order.paymentMethod === 'cod' ? 'COD' : 'Prepaid'}
+                    </div>
+                </div>
+            </div>
+            </body></html>`;
+        const printWindow = window.open('', '_blank', 'width=600,height=800');
+        if (printWindow) {
+            printWindow.document.write(labelContent);
+            printWindow.document.close();
+            setTimeout(() => {
+                printWindow.focus();
+                printWindow.print();
+            }, 500);
+        }
     };
 
     // ── Loading state ──
@@ -242,14 +318,18 @@ export default function OrderViewPage() {
                     <Button variant="outline" size="sm" onClick={handlePrintLabel}>
                         <Printer className="h-4 w-4" /> Print Label
                     </Button>
-                    {status === 'initialized' && (
+                    {['initialized', 'processed'].includes(status) && (
                         <Button
                             variant="success"
                             size="sm"
-                            onClick={handleConfirmOrder}
+                            onClick={handleUpdateStatus}
                             loading={isUpdating}
                         >
-                            <CheckCircle className="h-4 w-4" /> Confirm Order
+                            {status === 'processed' ? (
+                                <><Truck className="h-4 w-4" /> Ship Order</>
+                            ) : (
+                                <><CheckCircle className="h-4 w-4" /> Confirm Order</>
+                            )}
                         </Button>
                     )}
                 </div>
