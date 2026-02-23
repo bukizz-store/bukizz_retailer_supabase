@@ -71,6 +71,7 @@ export default function GeneralStorePage() {
         search: debouncedSearch,
         categoryId: filters.category === "all" ? "" : filters.category,
         status: filters.status,
+        productType: "general",
       });
 
       console.log(response);
