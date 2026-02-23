@@ -19,6 +19,26 @@ import {
   Loader2,
 } from "lucide-react";
 
+const statusLabelMap = {
+  initialized: "New",
+  processed: "Processed",
+  shipped: "Shipped",
+  out_for_delivery: "Out for Delivery",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+  refunded: "Refunded",
+};
+
+const statusBadgeVariant = {
+  initialized: "initialized",
+  processed: "processing",
+  shipped: "shipped",
+  out_for_delivery: "out_for_delivery",
+  delivered: "delivered",
+  cancelled: "cancelled",
+  refunded: "refunded",
+};
+
 export default function Overview() {
   const { activeWarehouse } = useWarehouse();
   const { openRequestModal } = useSchoolStore();
@@ -132,9 +152,8 @@ export default function Overview() {
         {statCards.map((stat, index) => {
           const content = (
             <div
-              className={`rounded-lg border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:shadow-md ${
-                stat.link ? "cursor-pointer hover:border-blue-200" : ""
-              }`}
+              className={`rounded-lg border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:shadow-md ${stat.link ? "cursor-pointer hover:border-blue-200" : ""
+                }`}
             >
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
@@ -149,15 +168,14 @@ export default function Overview() {
                     )}
                   </p>
                   <p
-                    className={`flex items-center gap-1 text-sm ${
-                      !stat.change
+                    className={`flex items-center gap-1 text-sm ${!stat.change
                         ? "invisible"
                         : stat.changeType === "positive"
                           ? "text-emerald-600"
                           : stat.changeType === "warning"
                             ? "text-amber-600"
                             : "text-slate-500"
-                    }`}
+                      }`}
                   >
                     {stat.changeType === "positive" && (
                       <ArrowUpRight className="h-4 w-4" />
@@ -218,26 +236,27 @@ export default function Overview() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-slate-900">
-                        {order.orderNumber || order.id}
+                        {order.items?.length > 0
+                          ? order.items.map(i => i.schoolName ? `${i.title} - ${i.schoolName}` : i.title).join(', ')
+                          : (order.orderNumber || order.id)}
                       </p>
                       <div className="flex items-center gap-2 text-xs text-slate-500">
                         <span>
-                          ₹{parseFloat(order.totalPrice || 0).toLocaleString()}
+                          ₹{parseFloat(order.items?.[0].price || 0).toLocaleString()}
                         </span>
                         <span>·</span>
                         <span>
-                          {order.itemCount} item
-                          {order.itemCount !== 1 ? "s" : ""}
+                          {order.items?.length} item
+                          {order.items?.length !== 1 ? "s" : ""}
                         </span>
-                        <span>·</span>
-                        <span>{order.customerName}</span>
                       </div>
                     </div>
                     <Badge
-                      variant={order.status}
+                      variant={statusBadgeVariant[order.status] || order.status}
+                      dot
                       className="flex-shrink-0 text-xs"
                     >
-                      {order.status}
+                      {statusLabelMap[order.status] || order.status}
                     </Badge>
                   </Link>
                 ))
