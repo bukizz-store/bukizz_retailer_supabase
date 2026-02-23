@@ -506,6 +506,12 @@ export default function OrderViewPage() {
                                             label="Phone"
                                             value={user?.phone || order.contactPhone || order.shippingAddress?.phone || '—'}
                                         />
+                                        {/* Student Name */}
+                                        <InfoRow
+                                            icon={<GraduationCap className="h-4 w-4" />}
+                                            label="Student Name"
+                                            value={order.shippingAddress?.studentName || '—'}
+                                        />
                                         {/* City / State */}
                                         {(user?.city || user?.state) && (
                                             <InfoRow

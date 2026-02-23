@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
 import useOrderStore from '@/store/orderStore';
 import { useWarehouse } from '@/context/WarehouseContext';
+import useAuthStore from '@/store/authStore';
 import {
     Search, Download, Package, Truck,
     Clock, CheckCircle, GraduationCap, MapPin,
@@ -83,6 +84,7 @@ export default function ActiveOrdersPage() {
     } = useOrderStore();
 
     const { activeWarehouse } = useWarehouse();
+    const { user } = useAuthStore();
     const navigate = useNavigate();
     const [selectedOrders, setSelectedOrders] = useState([]);
     const searchTimeoutRef = useRef(null);
@@ -153,34 +155,98 @@ export default function ActiveOrdersPage() {
     const handlePrintLabel = (orderId) => {
         const order = orders.find((o) => o.id === orderId);
         if (!order) return;
+
+        const address = order.shippingAddress || {};
+        const addressLines = [
+            `Student: ${address.studentName}`,
+            " ",
+            address.recipientName || order.contactEmail || 'Customer',
+            address.line1,
+            address.line2,
+            `${address.city || ''}${address.city && address.state ? ', ' : ''}${address.state || ''} ${address.postalCode || ''}`.trim(),
+            order.contactPhone ? `Phone: ${order.contactPhone}` : ''
+        ].filter(Boolean).join('<br/>');
+
+        const retailerName = user?.fullName || user?.name || 'Retailer Name';
+        const warehouseName = activeWarehouse?.name || 'Warehouse Name';
+        const qrData = `${order.items?.[0]?.id || ''} , ${order.id}`;
+
         const labelContent = `
             <html><head><title>Label — ${shortenOrderId(order)}</title>
             <style>
-                body { font-family: Arial, sans-serif; padding: 40px; }
-                .label { border: 2px solid #000; padding: 24px; max-width: 400px; }
-                .label h2 { margin: 0 0 12px; font-size: 18px; }
-                .label p { margin: 4px 0; font-size: 14px; }
-                .order-id { font-size: 16px; font-weight: bold; letter-spacing: 1px; }
-                .divider { border-top: 1px dashed #999; margin: 12px 0; }
-            </style></head><body><div class="label">
-                <p class="order-id">Order: ${shortenOrderId(order)}</p>
-                <div class="divider"></div>
-                <h2>Ship To:</h2>
-                <p><strong>${order.shippingAddress?.recipientName || order.contactEmail || 'Customer'}</strong></p>
-                <p>${order.shippingAddress?.line1 || ''}</p>
-                <p>${order.shippingAddress?.city || ''}, ${order.shippingAddress?.state || ''}</p>
-                <p>${order.shippingAddress?.postalCode || ''}</p>
-                ${order.contactPhone ? `<p>Phone: ${order.contactPhone}</p>` : ''}
-                <div class="divider"></div>
-                <p>Amount: ₹${Number(order.totalAmount || 0).toLocaleString()}</p>
-                <p>Payment: ${(order.paymentMethod || 'N/A').toUpperCase()}</p>
-            </div></body></html>`;
-        const printWindow = window.open('', '_blank', 'width=500,height=600');
+                body { font-family: Arial, sans-serif; padding: 20px; display: flex; justify-content: center; }
+                .label-box { border: 2px solid #000; width: 100%; max-width: 550px; }
+                .header-row { display: flex; border-bottom: 2px solid #000; }
+                .header-left { flex: 1; padding: 16px; border-right: 2px solid #000; }
+                .header-right { flex: 1; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+                .logo-row { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
+                .body-section { padding: 16px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+                th, td { border: 1px solid #000; padding: 10px; text-align: left; }
+                th { background-color: #f9f9f9; text-align: center; }
+                .text-bold { font-weight: bold; }
+                .mb-1 { margin-bottom: 4px; }
+                .mb-2 { margin-bottom: 8px; }
+                .mb-3 { margin-bottom: 12px; }
+                .mb-4 { margin-bottom: 16px; }
+            </style></head><body>
+            <div class="label-box">
+                <div class="header-row">
+                    <div class="header-left">
+                        <div class="text-bold">Delivered By:</div>
+                        <div class="logo-row">
+                            <img src="${window.location.origin}/logo.svg" alt="bukizz" style="height: 32px;" onerror="this.style.display='none'" />
+                        </div>
+                        <div class="text-bold mb-1">Fulfilled By:</div>
+                        <div>${retailerName} ,<br/>${warehouseName}</div>
+                    </div>
+                    <div class="header-right">
+                        <div class="mb-2">QR</div>
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrData)}" alt="QR Code" style="width: 120px; height: 120px; margin-bottom: 8px;"/>
+                    </div>
+                </div>
+                <div class="body-section">
+                    <div class="text-bold mb-1">Shipping Address:</div>
+                    <div class="mb-4">${addressLines}<br/></div>
+                    
+                    <div class="text-bold mb-3">Order Number: ${shortenOrderId(order)}</div>
+                    
+                    <div class="text-bold mb-4">Delivery Date: ${order.deliveryDate || 'N/A'}</div>
+                    
+                    <div class="text-bold mb-2">Details:</div>
+                    <table class="mb-4">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Amount</th>
+                                <th>Payment Method</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${order.items?.map(item => `
+                            <tr>
+                                <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ''}</td>
+                                <td style="text-align: center;">${order.totalAmount || item.totalPrice || item.unitPrice * (item.quantity || 1)}</td>
+                                <td style="text-align: center;">Prepaid</td>
+                            </tr>
+                            `).join('') || ''}
+                        </tbody>
+                    </table>
+                    
+                    <div class="mb-2" style="margin-top: 32px;">
+                        Payment Due on Receipt: ${order.paymentMethod === 'cod' ? 'COD' : 'Prepaid'}
+                    </div>
+                </div>
+            </div>
+            </body></html>`;
+        const printWindow = window.open('', '_blank', 'width=600,height=800');
         if (printWindow) {
             printWindow.document.write(labelContent);
             printWindow.document.close();
-            printWindow.focus();
-            printWindow.print();
+            setTimeout(() => {
+                printWindow.focus();
+                printWindow.print();
+            }, 500);
         }
     };
 
@@ -277,10 +343,13 @@ export default function ActiveOrdersPage() {
                                     <input type="checkbox" checked={selectedOrders.length === displayedOrders.length && displayedOrders.length > 0}
                                         onChange={toggleSelectAll} className="h-4 w-4 rounded border-slate-300" />
                                 </th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Order ID</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Order Details</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Customer</th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Date & Time</th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Student Name</th>
                                 <th className="px-6 py-4 text-right text-sm font-semibold text-slate-900">Amount</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Status</th>
+                                <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Qty</th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900" style={{ minWidth: '120px' }}>Status</th>
                                 <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Actions</th>
                             </tr>
                         </thead>
@@ -355,12 +424,14 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
     ) || order.metadata?.orderSummary?.items?.some(
         (item) => item.productSnapshot?.productType === 'bookset' || item.productSnapshot?.productType === 'uniform'
     );
-    const customerName = order.shippingAddress?.recipientName || order.contactEmail || 'Customer';
-    const city = order.shippingAddress?.city || '';
-    const amount = Number(order.totalAmount || 0);
-    const createdAt = order.createdAt
+    const studentName = order.shippingAddress?.studentName || order.contactEmail || 'Student';
+    const amount = order.items?.[0].unitPrice || order.totalAmount || 0;
+    const createdAtDate = order.createdAt
         ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
         : '—';
+    const createdAtTime = order.createdAt
+        ? new Date(order.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+        : '';
 
     const handleRowClick = (e) => {
         // Don't navigate if clicking checkbox or buttons
@@ -375,34 +446,48 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
                 <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="h-4 w-4 rounded border-slate-300" />
             </td>
 
-            {/* Order Details */}
+            {/* Order ID */}
             <td className="px-6 py-4">
-                <div className="flex items-center gap-3">
-                    <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg",
-                        isSchoolOrder ? "bg-violet-100" : "bg-slate-100")}>
-                        {isSchoolOrder
-                            ? <GraduationCap className="h-5 w-5 text-violet-600" />
-                            : <ShoppingBag className="h-5 w-5 text-slate-400" />}
-                    </div>
-                    <div>
-                        <p className="font-mono text-sm font-semibold text-blue-600" title={order.id}>{shortId}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">{createdAt}</p>
-                    </div>
+                <p className="font-mono text-sm font-medium text-blue-600 truncate max-w-[120px]" title={order.id}>{shortId}</p>
+            </td>
+
+            {/* Order Details */}
+            <td className="px-6 py-4 w-1/4">
+                <div className="flex flex-col gap-1">
+                    {order.items?.map((item, idx) => (
+                        <div key={idx} className="text-sm">
+                            <p className="font-medium text-slate-900 line-clamp-2" title={item.title || item.productSnapshot?.name}>
+                                {item.schoolName ? `${item.title || item.productSnapshot?.name} - ${item.schoolName}` : (item.title || item.productSnapshot?.name)}
+                            </p>
+                            {(item.variantDetail || item.productSnapshot?.variantName) && (
+                                <p className="text-xs text-slate-500">{item.variantDetail || item.productSnapshot?.variantName}</p>
+                            )}
+                        </div>
+                    ))}
+                    {(!order.items || order.items.length === 0) && <span className="text-sm text-slate-400">No details</span>}
                 </div>
             </td>
 
-            {/* Customer */}
+            {/* Date & Time */}
+            <td className="px-6 py-4 whitespace-nowrap">
+                <p className="text-sm text-slate-900">{createdAtDate}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{createdAtTime}</p>
+            </td>
+
+            {/* Student Name */}
             <td className="px-6 py-4">
-                <p className="text-sm font-medium text-slate-900 truncate max-w-[180px]">{customerName}</p>
-                {city && (
-                    <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
-                        <MapPin className="h-3 w-3" />{city}
-                    </div>
-                )}
+                <p className="text-sm font-medium text-slate-900 truncate max-w-[180px]">{studentName}</p>
             </td>
 
             {/* Amount */}
             <td className="px-6 py-4 text-right font-bold text-slate-900">₹{amount.toLocaleString()}</td>
+
+            {/* Qty */}
+            <td className="px-6 py-4 text-center">
+                <span className="text-sm font-medium text-slate-900">
+                    {order.items?.reduce((acc, item) => acc + (item.quantity || 1), 0) || order.itemCount || 0}
+                </span>
+            </td>
 
             {/* Status */}
             <td className="px-6 py-4">
