@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import useOrderStore from "@/store/orderStore";
+import React, { useState, useEffect, useCallback } from "react";
 import { useWarehouse } from "@/context/WarehouseContext";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -17,8 +16,10 @@ import {
   ChevronRight,
   TrendingDown,
   Info,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { settlementService } from "@/services/settlementService";
 
 // Dummy Data (Partial)
 
@@ -31,8 +32,10 @@ const statusBadgeVariant = {
 };
 
 const paymentStatusVariant = {
-  settled: "delivered",
-  pending: "warning",
+  SETTLED: "delivered",
+  PENDING: "warning",
+  ON_HOLD: "warning",
+  AVAILABLE: "info",
 };
 
 const invoiceBadgeVariant = {
@@ -45,37 +48,86 @@ export default function SettlementsPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  const { orders, fetchOrders, setLimit, isLoading } = useOrderStore();
+  const [summaryData, setSummaryData] = useState({});
+  const [ledgersData, setLedgersData] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
   const { activeWarehouse } = useWarehouse();
 
-  useEffect(() => {
-    if (activeWarehouse?.id) {
-      setLimit(1000); // Fetch a large number to ensure we get all orders for the summary
-      fetchOrders(activeWarehouse.id);
+  const fetchSettlementData = useCallback(async () => {
+    if (!activeWarehouse?.id) return;
+    setIsLoading(true);
+    try {
+      const params = {
+        warehouseId: activeWarehouse.id,
+      };
+      if (fromDate) params.startDate = fromDate;
+      if (toDate) params.endDate = toDate;
+
+      const [summaryRes, ledgersRes] = await Promise.all([
+        settlementService.getSettlementSummary(params),
+        settlementService.getSettlementLedgers({
+          ...params,
+          page: 1,
+          limit: 1000,
+        }),
+      ]);
+
+      const sumData = summaryRes?.data;
+      console.log(sumData)
+      setSummaryData( sumData || {});
+
+      let lData = ledgersRes?.data;
+      if (lData && !Array.isArray(lData)) {
+        lData =
+          lData.data ||
+          lData.records ||
+          lData.ledgers ||
+          Object.values(lData).find(Array.isArray) ||
+          [];
+      }
+      setLedgersData(
+        Array.isArray(lData)
+          ? lData
+          : Array.isArray(ledgersRes)
+            ? ledgersRes
+            : [],
+      );
+    } catch (error) {
+      console.error("Error fetching settlement data:", error);
+    } finally {
+      setIsLoading(false);
     }
-    // Cleanup limit if navigating away not strictly necessary as ActiveOrdersPage sets it
-  }, [activeWarehouse?.id, fetchOrders, setLimit]);
+  }, [activeWarehouse?.id, fromDate, toDate]);
+
+  useEffect(() => {
+    fetchSettlementData();
+  }, [fetchSettlementData]);
 
   // Compute stats
-  const validOrders = orders.filter((o) => o.status !== "cancelled");
-  const totalOrdersCount = validOrders.length;
-
-  const totalSalesAmount = validOrders.reduce((sum, order) => {
-    return sum + Number(order.totalAmount || 0);
-  }, 0);
 
   // Format amount compactly (e.g., 58000 -> 58.0K)
   const formatAmountK = (num) => {
+    if (!num) return "₹0";
     if (num >= 1000) {
       return `₹${(num / 1000).toFixed(1)}K`;
     }
     return `₹${num.toLocaleString()}`;
   };
 
+  const formatDateStr = (dateStr) => {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   const SETTLEMENT_STATS = [
     {
       title: "Total Orders",
-      value: totalOrdersCount.toString(),
+      value: (summaryData.total_orders || 0).toString(),
       subtext: "Excl. cancelled",
       icon: ShoppingCart,
       iconBg: "bg-blue-50",
@@ -83,7 +135,7 @@ export default function SettlementsPage() {
     },
     {
       title: "Total Sales",
-      value: formatAmountK(totalSalesAmount),
+      value: formatAmountK(summaryData.total_sales),
       subtext: "Delivered & Processing",
       icon: TrendingUp,
       iconBg: "bg-emerald-50",
@@ -91,8 +143,9 @@ export default function SettlementsPage() {
     },
     {
       title: "To Be Settled",
-      // value: "₹0.0K",
-      value: "NA",
+      value: !summaryData.toBeSettled
+        ? "NA"
+        : formatAmountK(summaryData.to_be_settled),
       subtext: "Incl. return deductions",
       icon: Wallet,
       iconBg: "bg-amber-50",
@@ -100,7 +153,7 @@ export default function SettlementsPage() {
     },
     {
       title: "Last Settlement",
-      value: "20 Feb 2026",
+      value: formatDateStr(summaryData.last_settlement_date),
       subtext: "Most recent payout",
       icon: Clock,
       iconBg: "bg-violet-50",
@@ -108,8 +161,10 @@ export default function SettlementsPage() {
     },
     {
       title: "Next Settlement",
-      value: "27 Feb 2026",
-      subtext: "(₹6.9K) Adjusted for returns",
+      value: formatDateStr(summaryData.next_settlement_date),
+      subtext: summaryData.nextSettlement?.amount
+        ? `(₹${(summaryData.nextSettlement.amount / 1000).toFixed(1)}K) Adjusted for returns`
+        : "Adjusted for returns",
       icon: Calendar,
       iconBg: "bg-red-50",
       iconColor: "text-red-600",
@@ -222,7 +277,10 @@ export default function SettlementsPage() {
               />
             </div>
           </div>
-          <Button className="h-11 px-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all shadow-md shadow-blue-100">
+          <Button
+            onClick={fetchSettlementData}
+            className="h-11 px-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all shadow-md shadow-blue-100"
+          >
             Apply
           </Button>
         </div>
@@ -270,7 +328,7 @@ export default function SettlementsPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900">Order Records</h2>
           <p className="text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full font-medium">
-            {orders.length} orders found
+            {ledgersData.length} records found
           </p>
         </div>
 
@@ -284,7 +342,7 @@ export default function SettlementsPage() {
                       <div className="h-4 w-4 rounded border border-slate-300 flex items-center justify-center bg-white">
                         <div className="h-1.5 w-1.5 bg-blue-600 rounded-full opacity-0" />
                       </div>
-                      ORDER NO.
+                      DISPATCH ID
                     </div>
                   </th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -326,52 +384,84 @@ export default function SettlementsPage() {
                       colSpan={11}
                       className="px-6 py-8 text-center text-slate-500"
                     >
-                      Loading orders...
+                      <Loader2 className="h-6 w-6 text-blue-500 animate-spin mx-auto mb-2" />
+                      Loading ledgers...
                     </td>
                   </tr>
-                ) : orders.length === 0 ? (
+                ) : ledgersData.length === 0 ? (
                   <tr>
                     <td
                       colSpan={11}
                       className="px-6 py-8 text-center text-slate-500"
                     >
-                      No orders found.
+                      No records found.
                     </td>
                   </tr>
                 ) : (
-                  orders.map((order, idx) => {
-                    const status = order.status || "initialized";
+                  ledgersData.map((ledger, idx) => {
+                    const status = ledger.order_items?.status || "—";
+                    const paymentStatus = ledger.status || "PENDING";
                     const customerName =
-                      order.shippingAddress?.recipientName ||
-                      order.contactEmail ||
+                      ledger.orders?.shippingAddress?.recipientName ||
+                      ledger.orders?.contactEmail ||
                       "Customer";
-                    const amount = Number(order.totalAmount || 0);
-                    const createdAt = order.createdAt
-                      ? new Date(order.createdAt).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })
+                    const amount = Number(ledger.amount || 0);
+                    const createdAt = ledger.orders?.created_at
+                      ? new Date(ledger.orders.created_at).toLocaleDateString(
+                          "en-IN",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          },
+                        )
                       : "—";
+
+                    let settleDate = "—";
+                    if (paymentStatus === "PENDING" && ledger.trigger_date) {
+                      settleDate = new Date(
+                        ledger.trigger_date,
+                      ).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      });
+                    } else if (
+                      paymentStatus === "SETTLED" &&
+                      ledger.updated_at
+                    ) {
+                      settleDate = new Date(
+                        ledger.updated_at,
+                      ).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      });
+                    }
 
                     // Deriving standard fields fallback or actual if mapped
                     const schoolName =
-                      order.metadata?.schoolName || "Standard Retailer";
+                      ledger.orders?.metadata?.schoolName ||
+                      "Standard Retailer";
                     const productSummary =
-                      order.items?.[0]?.productSnapshot?.name ||
-                      "Multiple Items";
-                    const productCode =
-                      order.items?.[0]?.productSnapshot?.sku || "N/A";
+                      (ledger.order_items?.title || "Multiple Items") +
+                      (ledger.transaction_type === "PLATFORM_FEE"
+                        ? " (Platform Fee)"
+                        : "");
+                    const productCode = ledger.order_items?.sku || "N/A";
 
                     return (
                       <tr
-                        key={order.id || idx}
+                        key={ledger.id || idx}
                         className="hover:bg-slate-50/50 transition-colors group"
                       >
                         <td className="px-6 py-5 whitespace-nowrap">
                           <div className="flex items-center gap-1 font-mono text-sm font-bold text-blue-600">
                             <div className="h-4 w-4 rounded border border-slate-300 group-hover:border-blue-400 transition-colors bg-white flex items-center justify-center mr-1" />
-                            {shortenOrderId(order.id)}
+                            {ledger.order_items?.dispatch_id ||
+                              shortenOrderId(
+                                ledger.orders?.order_number || ledger.id,
+                              )}
                           </div>
                         </td>
                         <td className="px-6 py-5">
@@ -404,8 +494,16 @@ export default function SettlementsPage() {
                           </div>
                         </td>
                         <td className="px-6 py-5">
-                          <div className="text-sm font-bold text-slate-900">
-                            ₹{amount.toLocaleString()}
+                          <div
+                            className={cn(
+                              "text-sm font-bold",
+                              ledger.entry_type === "DEBIT"
+                                ? "text-red-500"
+                                : "text-slate-900",
+                            )}
+                          >
+                            {ledger.entry_type === "DEBIT" ? "-" : ""}₹
+                            {amount.toLocaleString()}
                           </div>
                         </td>
                         <td className="px-6 py-5 whitespace-nowrap">
@@ -425,37 +523,41 @@ export default function SettlementsPage() {
                         <td className="px-6 py-5 text-center">
                           <Badge
                             variant={
-                              paymentStatusVariant[
-                                order.paymentStatus || "pending"
-                              ] || "warning"
+                              paymentStatusVariant[paymentStatus] || "default"
                             }
-                            className="capitalize text-[11px] font-bold px-3"
+                            className={cn(
+                              "capitalize text-[11px] font-bold px-3",
+                              paymentStatus === "AVAILABLE" &&
+                                "bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200 shadow-sm",
+                            )}
                           >
-                            {order.paymentStatus || "Pending"}
+                            {paymentStatus === "ON_HOLD"
+                              ? "Pending"
+                              : paymentStatus === "AVAILABLE"
+                                ? "Ready"
+                                : paymentStatus}
                           </Badge>
                         </td>
                         <td className="px-6 py-5 text-center">
-                          <div className="text-xs text-slate-500 font-medium">
-                            {order.paymentStatus === "settled"
-                              ? createdAt
-                              : "—"}
+                          <div className="text-xs text-slate-500 font-medium whitespace-nowrap">
+                            {settleDate}
                           </div>
                         </td>
                         <td className="px-6 py-5 text-center">
                           <Badge
                             variant={
                               invoiceBadgeVariant[
-                                order.invoice || "not_generated"
+                                ledger.invoice || "not_generated"
                               ]
                             }
                             className={cn(
                               "capitalize text-[10px] font-bold px-3 py-1 border rounded-lg",
-                              order.invoice === "generated"
+                              ledger.invoice === "generated"
                                 ? "bg-emerald-50 text-emerald-600 border-emerald-100"
                                 : "bg-slate-50 text-slate-400 border-slate-100",
                             )}
                           >
-                            {order.invoice === "generated"
+                            {ledger.invoice === "generated"
                               ? "Generated"
                               : "Not Generated"}
                           </Badge>
