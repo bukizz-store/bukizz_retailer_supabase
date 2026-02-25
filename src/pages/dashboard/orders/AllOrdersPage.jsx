@@ -11,15 +11,18 @@ import {
     Search, Download, Package, Truck,
     Clock, CheckCircle, GraduationCap, MapPin,
     Loader2, AlertCircle, RefreshCw, Printer, CheckCheck,
-    ShoppingBag,
+    ShoppingBag, RotateCcw, XCircle,
 } from 'lucide-react';
 
-// ── Status config matching server enum: initialized → processed → shipped → out_for_delivery → delivered ──
+// ── Status config ──
 const statusCards = [
     { id: 'all', label: 'All Orders', icon: <Package className="h-5 w-5" />, color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
-    { id: 'initialized', label: 'New', icon: <Clock className="h-5 w-5" />, color: 'text-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' },
     { id: 'processed', label: 'Processed', icon: <CheckCircle className="h-5 w-5" />, color: 'text-emerald-600', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200' },
     { id: 'shipped', label: 'Shipped', icon: <Truck className="h-5 w-5" />, color: 'text-violet-600', bgColor: 'bg-violet-50', borderColor: 'border-violet-200' },
+    { id: 'out_for_delivery', label: 'Out for Delivery', icon: <ShoppingBag className="h-5 w-5" />, color: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' },
+    { id: 'delivered', label: 'Delivered', icon: <CheckCheck className="h-5 w-5" />, color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200' },
+    { id: 'cancelled', label: 'Cancelled', icon: <XCircle className="h-5 w-5" />, color: 'text-red-600', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
+    { id: 'refunded', label: 'Refunded', icon: <RotateCcw className="h-5 w-5" />, color: 'text-slate-600', bgColor: 'bg-slate-50', borderColor: 'border-slate-200' },
 ];
 
 // Map server status enum to readable labels
@@ -44,11 +47,6 @@ const statusBadgeVariant = {
     refunded: 'refunded',
 };
 
-/**
- * Truncate a long UUID-based order ID into a short display format.
- * e.g., "a1b2c3d4-e5f6-7890-abcd-ef1234567890" → "#C3D4EF12"
- * Prefers order_number if present.
- */
 function shortenOrderId(order) {
     if (order.orderNumber) return order.orderNumber;
     const id = order.id || '';
@@ -57,11 +55,6 @@ function shortenOrderId(order) {
     return `#${short}`;
 }
 
-/**
- * Derive the effective order status from the items array.
- * The status lives at `order.items[].status`, not `order.status`.
- * Uses the least-progressed item status as the bottleneck.
- */
 const STATUS_PRIORITY = ['initialized', 'processed', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'refunded'];
 
 function getOrderStatus(order) {
@@ -75,29 +68,24 @@ function getOrderStatus(order) {
     return minIndex < STATUS_PRIORITY.length ? STATUS_PRIORITY[minIndex] : (order.status || 'initialized');
 }
 
-export default function ActiveOrdersPage() {
+export default function AllOrdersPage() {
     const {
-        orders, totalCount, isLoading, isUpdatingStatus, error,
+        orders, totalCount, isLoading, error,
         statusFilter, searchQuery, page, limit,
         fetchOrders, setStatusFilter, setSearchQuery, setPage, setLimit,
-        updateOrderStatus, clearError,
+        clearError,
     } = useOrderStore();
 
     const { activeWarehouse } = useWarehouse();
-    const { user } = useAuthStore();
     const navigate = useNavigate();
-    const [selectedOrders, setSelectedOrders] = useState([]);
     const searchTimeoutRef = useRef(null);
 
     const warehouseId = activeWarehouse?.id;
 
-    // ── Fetch orders whenever page, limit, or warehouse changes ──
-    // Status filtering is done client-side so counts stay accurate.
     useEffect(() => {
         fetchOrders(warehouseId);
     }, [page, limit, warehouseId, fetchOrders]);
 
-    // ── Debounced search ──
     const handleSearchChange = useCallback(
         (e) => {
             const value = e.target.value;
@@ -116,156 +104,26 @@ export default function ActiveOrdersPage() {
         };
     }, []);
 
-    // ── Active (non-terminal) orders — exclude delivered/cancelled/refunded ──
-    const activeOrders = orders.filter(
-        (o) => !['delivered', 'cancelled', 'refunded'].includes(getOrderStatus(o))
+    // ── Exclude only 'initialized' orders ──
+    const allNonInitializedOrders = orders.filter(
+        (o) => getOrderStatus(o) !== 'initialized'
     );
 
-    // ── Status counts (always computed from full orders list) ──
+    // ── Status counts ──
     const counts = {
-        all: activeOrders.length,
-        initialized: orders.filter((o) => getOrderStatus(o) === 'initialized').length,
+        all: allNonInitializedOrders.length,
         processed: orders.filter((o) => getOrderStatus(o) === 'processed').length,
         shipped: orders.filter((o) => getOrderStatus(o) === 'shipped').length,
+        out_for_delivery: orders.filter((o) => getOrderStatus(o) === 'out_for_delivery').length,
+        delivered: orders.filter((o) => getOrderStatus(o) === 'delivered').length,
+        cancelled: orders.filter((o) => getOrderStatus(o) === 'cancelled').length,
+        refunded: orders.filter((o) => getOrderStatus(o) === 'refunded').length,
     };
 
     // ── Displayed orders: filter client-side based on selected status tab ──
     const displayedOrders = statusFilter === 'all'
-        ? activeOrders
+        ? allNonInitializedOrders
         : orders.filter((o) => getOrderStatus(o) === statusFilter);
-
-    const toggleOrderSelection = (orderId) => {
-        setSelectedOrders((prev) =>
-            prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
-        );
-    };
-
-    const toggleSelectAll = () => {
-        setSelectedOrders(
-            selectedOrders.length === displayedOrders.length ? [] : displayedOrders.map((o) => o.id)
-        );
-    };
-
-    // ── Actions ──
-    const handleUpdateStatus = async (orderId, currentStatus) => {
-        const nextStatus = currentStatus === 'initialized' ? 'processed' : 'shipped';
-        const note = currentStatus === 'initialized' ? 'Confirmed by retailer' : 'Shipped by retailer';
-        const result = await updateOrderStatus(orderId, nextStatus, note);
-        if (result.success) fetchOrders(warehouseId);
-    };
-
-    const handlePrintLabel = (orderId) => {
-        const order = orders.find((o) => o.id === orderId);
-        if (!order) return;
-
-        const address = order.shippingAddress || {};
-        const addressLines = [
-            `Student: ${address.studentName}`,
-            " ",
-            address.recipientName || order.contactEmail || 'Customer',
-            address.line1,
-            address.line2,
-            `${address.city || ''}${address.city && address.state ? ', ' : ''}${address.state || ''} ${address.postalCode || ''}`.trim(),
-            order.contactPhone ? `Phone: ${order.contactPhone}` : ''
-        ].filter(Boolean).join('<br/>');
-
-        const retailerName = user?.fullName || user?.name || 'Retailer Name';
-        const warehouseName = activeWarehouse?.name || 'Warehouse Name';
-        const qrData = `${order.items?.[0]?.id || ''} , ${order.id}`;
-
-        const labelContent = `
-            <html><head><title>Label — ${shortenOrderId(order)}</title>
-            <style>
-                body { font-family: Arial, sans-serif; padding: 20px; display: flex; justify-content: center; }
-                .label-box { border: 2px solid #000; width: 100%; max-width: 550px; }
-                .header-row { display: flex; border-bottom: 2px solid #000; }
-                .header-left { flex: 1; padding: 16px; border-right: 2px solid #000; }
-                .header-right { flex: 1; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-                .logo-row { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
-                .body-section { padding: 16px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-                th, td { border: 1px solid #000; padding: 10px; text-align: left; }
-                th { background-color: #f9f9f9; text-align: center; }
-                .text-bold { font-weight: bold; }
-                .mb-1 { margin-bottom: 4px; }
-                .mb-2 { margin-bottom: 8px; }
-                .mb-3 { margin-bottom: 12px; }
-                .mb-4 { margin-bottom: 16px; }
-            </style></head><body>
-            <div class="label-box">
-                <div class="header-row">
-                    <div class="header-left">
-                        <div class="text-bold">Delivered By:</div>
-                        <div class="logo-row">
-                            <img src="${window.location.origin}/logo.svg" alt="bukizz" style="height: 48px;" onerror="this.style.display='none'" />
-                        </div>
-                        <div class="text-bold mb-1">Fulfilled By:</div>
-                        <div>${retailerName} ,<br/>${warehouseName}</div>
-                    </div>
-                    <div class="header-right">
-                        <div class="mb-2">QR</div>
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrData)}" alt="QR Code" style="width: 120px; height: 120px; margin-bottom: 8px;"/>
-                    </div>
-                </div>
-                <div class="body-section">
-                    <div class="text-bold mb-1">Shipping Address:</div>
-                    <div class="mb-4">${addressLines}<br/></div>
-                    
-                    <div class="text-bold mb-3">Order Number: ${shortenOrderId(order)}</div>
-                    <div class="text-bold mb-3">Order ID: ${order.id}</div>
-                    
-                    <div class="text-bold mb-2">Details:</div>
-                    <table class="mb-4">
-                        <thead>
-                            <tr>
-                                <th>Item</th>
-                                <th>Payment Method</th> 
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${order.items?.map(item => `
-                            <tr>
-                                <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ''}</td>
-                                <td style="text-align: center;">Prepaid</td>
-                            </tr>
-                            `).join('') || ''}
-                        </tbody>
-                    </table>
-                    
-                    <div class="mb-2" style="margin-top: 32px;">
-                        Payment Due on Receipt: ${order.paymentMethod === 'cod' ? 'COD' : 'Prepaid'}
-                    </div>
-                </div>
-            </div>
-            </body></html>`;
-        const printWindow = window.open('', '_blank', 'width=600,height=800');
-        if (printWindow) {
-            printWindow.document.write(labelContent);
-            printWindow.document.close();
-            setTimeout(() => {
-                printWindow.focus();
-                printWindow.print();
-            }, 500);
-        }
-    };
-
-    const handleBulkUpdateStatus = async () => {
-        for (const orderId of selectedOrders) {
-            const order = orders.find((o) => o.id === orderId);
-            const status = getOrderStatus(order);
-            if (order && (status === 'initialized' || status === 'processed')) {
-                const nextStatus = status === 'initialized' ? 'processed' : 'shipped';
-                const note = status === 'initialized' ? 'Bulk confirmed by retailer' : 'Bulk shipped by retailer';
-                await updateOrderStatus(orderId, nextStatus, note);
-            }
-        }
-        setSelectedOrders([]);
-        fetchOrders(warehouseId);
-    };
-
-    const handleBulkPrintLabels = () => {
-        selectedOrders.forEach((id) => handlePrintLabel(id));
-    };
 
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -274,9 +132,9 @@ export default function ActiveOrdersPage() {
             {/* Header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Active Orders</h1>
+                    <h1 className="text-2xl font-bold text-slate-900">All Orders</h1>
                     <p className="mt-1 text-sm text-slate-500">
-                        Manage and track orders for{' '}
+                        View all orders (excluding new/unconfirmed) for{' '}
                         <span className="font-medium text-slate-700">{activeWarehouse?.name || 'your warehouse'}</span>
                     </p>
                 </div>
@@ -309,7 +167,7 @@ export default function ActiveOrdersPage() {
                             statusFilter === card.id ? card.color : "text-slate-400"
                         )}>{card.icon}</div>
                         <div>
-                            <span className="text-2xl font-bold text-slate-900">{isLoading ? '—' : counts[card.id]}</span>
+                            <span className="text-2xl font-bold text-slate-900">{isLoading ? '—' : (counts[card.id] ?? 0)}</span>
                             <p className={cn("text-sm font-medium", statusFilter === card.id ? card.color : "text-slate-600")}>{card.label}</p>
                         </div>
                     </button>
@@ -322,68 +180,45 @@ export default function ActiveOrdersPage() {
                     onChange={handleSearchChange} icon={<Search className="h-5 w-5" />} />
             </div>
 
-            {/* Bulk Actions */}
-            {selectedOrders.length > 0 && (
-                <div className="flex items-center gap-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-                    <span className="text-sm font-medium text-blue-700">{selectedOrders.length} selected</span>
-                    <Button variant="outline" size="sm" onClick={handleBulkUpdateStatus} disabled={isUpdatingStatus}>
-                        <CheckCheck className="h-4 w-4" />Update Selected Status
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleBulkPrintLabels}>
-                        <Printer className="h-4 w-4" />Print Labels
-                    </Button>
-                </div>
-            )}
-
             {/* Orders Table */}
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-slate-200 bg-slate-50">
-                                <th className="px-6 py-4 text-left">
-                                    <input type="checkbox" checked={selectedOrders.length === displayedOrders.length && displayedOrders.length > 0}
-                                        onChange={toggleSelectAll} className="h-4 w-4 rounded border-slate-300" />
-                                </th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Order ID</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Order Details</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Date & Time</th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Date &amp; Time</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Student Name</th>
                                 <th className="px-6 py-4 text-right text-sm font-semibold text-slate-900">Amount</th>
                                 <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Qty</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900" style={{ minWidth: '120px' }}>Status</th>
-                                <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Actions</th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900" style={{ minWidth: '140px' }}>Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={6} className="py-16 text-center">
+                                    <td colSpan={7} className="py-16 text-center">
                                         <Loader2 className="mx-auto mb-3 h-8 w-8 text-blue-500 animate-spin" />
                                         <p className="text-sm text-slate-500">Loading orders…</p>
                                     </td>
                                 </tr>
                             ) : displayedOrders.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="py-16 text-center">
+                                    <td colSpan={7} className="py-16 text-center">
                                         <Package className="mx-auto mb-4 h-12 w-12 text-slate-300" />
                                         <p className="text-lg font-medium text-slate-600">No orders found</p>
                                         <p className="mt-1 text-sm text-slate-400">
-                                            {searchQuery ? 'Try adjusting your search query' : 'Orders will appear here once customers place them'}
+                                            {searchQuery ? 'Try adjusting your search query' : 'Confirmed orders will appear here'}
                                         </p>
                                     </td>
                                 </tr>
                             ) : (
                                 displayedOrders.map((order) => (
-                                    <OrderRow
+                                    <AllOrderRow
                                         key={order.id}
                                         order={order}
-                                        isSelected={selectedOrders.includes(order.id)}
-                                        onToggleSelect={() => toggleOrderSelection(order.id)}
-                                        onConfirm={() => handleUpdateStatus(order.id, status)}
-                                        onPrintLabel={() => handlePrintLabel(order.id)}
-                                        onViewOrder={() => navigate(`/dashboard/orders/${order.items[0].id}`)}
-                                        isUpdating={isUpdatingStatus}
+                                        onViewOrder={() => navigate(`/dashboard/orders/${order.id}`)}
                                     />
                                 ))
                             )}
@@ -417,18 +252,11 @@ export default function ActiveOrdersPage() {
 
 // ── Individual Order Row ───────────────────────────────────────────────────────
 
-function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, onViewOrder, isUpdating }) {
+function AllOrderRow({ order, onViewOrder }) {
     const shortId = shortenOrderId(order);
     const status = getOrderStatus(order);
-    // Detect school/bookset orders from items or metadata
-    console.log(order);
-    const isSchoolOrder = order.items?.some(
-        (item) => item.productSnapshot?.productType === 'bookset' || item.productSnapshot?.productType === 'uniform'
-    ) || order.metadata?.orderSummary?.items?.some(
-        (item) => item.productSnapshot?.productType === 'bookset' || item.productSnapshot?.productType === 'uniform'
-    );
     const studentName = order.shippingAddress?.studentName || order.contactEmail || 'Student';
-    const amount = order.items?.[0].unitPrice || order.totalAmount || 0;
+    const amount = order.items?.[0]?.unitPrice || order.totalAmount || 0;
     const createdAtDate = order.createdAt
         ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
         : '—';
@@ -437,21 +265,15 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
         : '';
 
     const handleRowClick = (e) => {
-        // Don't navigate if clicking checkbox or buttons
         if (e.target.closest('input[type="checkbox"]') || e.target.closest('button')) return;
         onViewOrder();
     };
 
     return (
-        <tr className={cn("transition-colors hover:bg-slate-50 cursor-pointer", isSelected && "bg-blue-50/50")}
-            onClick={handleRowClick}>
-            <td className="px-6 py-4">
-                <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="h-4 w-4 rounded border-slate-300" />
-            </td>
-
+        <tr className="transition-colors hover:bg-slate-50 cursor-pointer" onClick={handleRowClick}>
             {/* Order ID */}
             <td className="px-6 py-4">
-                <p className="font-mono text-sm font-medium text-blue-600 truncate max-w-[120px]" title={order.items[0].id}>{order.items[0].dispatchId}</p>
+                <p className="font-mono text-sm font-medium text-blue-600 truncate max-w-[120px]" title={order.id}>{shortId}</p>
             </td>
 
             {/* Order Details */}
@@ -497,26 +319,6 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
                 <Badge variant={statusBadgeVariant[status] || 'default'} dot>
                     {statusLabelMap[status] || status}
                 </Badge>
-            </td>
-
-            {/* Actions: Print Label + Confirm */}
-            <td className="px-6 py-4">
-                <div className="flex items-center justify-center gap-2">
-                    <Button variant="outline" size="sm" onClick={onPrintLabel} title="Print shipping label"
-                        className="text-slate-600 hover:text-slate-900">
-                        <Printer className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={onConfirm}
-                        disabled={isUpdating || !['initialized', 'processed'].includes(status)}
-                        title={status === 'initialized' ? 'Confirm Order' : (status === 'processed' ? 'Ship Order' : `Already ${statusLabelMap[status] || status}`)}
-                        className={cn(
-                            (status === 'initialized' || status === 'processed')
-                                ? 'text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700'
-                                : 'text-slate-400 cursor-not-allowed'
-                        )}>
-                        {status === 'processed' ? <Truck className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
-                    </Button>
-                </div>
             </td>
         </tr>
     );
