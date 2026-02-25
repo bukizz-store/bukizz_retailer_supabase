@@ -25,6 +25,7 @@ import {
   Warehouse,
   ChevronRight,
   Wallet,
+  Archive,
 } from "lucide-react";
 import WarehouseSwitcher from "@/components/dashboard/WarehouseSwitcher";
 
@@ -75,6 +76,11 @@ const navItems = [
         label: "Active Orders",
         href: "/dashboard/orders",
         icon: ClipboardList,
+      },
+      {
+        label: "All Orders",
+        href: "/dashboard/orders/all",
+        icon: Archive,
       },
       {
         label: "Returns",
