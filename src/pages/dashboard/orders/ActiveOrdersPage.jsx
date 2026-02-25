@@ -197,7 +197,7 @@ export default function ActiveOrdersPage() {
                     <div class="header-left">
                         <div class="text-bold">Delivered By:</div>
                         <div class="logo-row">
-                            <img src="${window.location.origin}/logo.svg" alt="bukizz" style="height: 32px;" onerror="this.style.display='none'" />
+                            <img src="${window.location.origin}/logo.svg" alt="bukizz" style="height: 48px;" onerror="this.style.display='none'" />
                         </div>
                         <div class="text-bold mb-1">Fulfilled By:</div>
                         <div>${retailerName} ,<br/>${warehouseName}</div>
@@ -212,23 +212,20 @@ export default function ActiveOrdersPage() {
                     <div class="mb-4">${addressLines}<br/></div>
                     
                     <div class="text-bold mb-3">Order Number: ${shortenOrderId(order)}</div>
-                    
-                    <div class="text-bold mb-4">Delivery Date: ${order.deliveryDate || 'N/A'}</div>
+                    <div class="text-bold mb-3">Order ID: ${order.id}</div>
                     
                     <div class="text-bold mb-2">Details:</div>
                     <table class="mb-4">
                         <thead>
                             <tr>
                                 <th>Item</th>
-                                <th>Amount</th>
-                                <th>Payment Method</th>
+                                <th>Payment Method</th> 
                             </tr>
                         </thead>
                         <tbody>
                             ${order.items?.map(item => `
                             <tr>
                                 <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ''}</td>
-                                <td style="text-align: center;">${order.totalAmount || item.totalPrice || item.unitPrice * (item.quantity || 1)}</td>
                                 <td style="text-align: center;">Prepaid</td>
                             </tr>
                             `).join('') || ''}
