@@ -34,6 +34,7 @@ import SchoolProductManagementPage from "./pages/dashboard/inventory/SchoolProdu
 import AddSchoolProductPage from "./pages/dashboard/inventory/AddSchoolProductPage";
 import ProductDetailPage from "./pages/dashboard/inventory/ProductDetailPage";
 import ActiveOrdersPage from "./pages/dashboard/orders/ActiveOrdersPage";
+import AllOrdersPage from "./pages/dashboard/orders/AllOrdersPage";
 import OrderViewPage from "./pages/dashboard/orders/OrderViewPage";
 import CancelledOrdersPage from "./pages/dashboard/orders/CancelledOrdersPage";
 import ReturnsPage from "./pages/dashboard/orders/ReturnsPage";
@@ -128,6 +129,7 @@ export default function App() {
           />
           <Route path="orders" element={<OrdersLayout />}>
             <Route index element={<ActiveOrdersPage />} />
+            <Route path="all" element={<AllOrdersPage />} />
             <Route path=":orderId" element={<OrderViewPage />} />
             <Route path="cancelled" element={<CancelledOrdersPage />} />
             <Route path="returns" element={<ReturnsPage />} />
