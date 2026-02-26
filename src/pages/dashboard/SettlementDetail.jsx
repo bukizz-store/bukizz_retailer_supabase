@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   X,
   Printer,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -23,6 +24,7 @@ export default function SettlementDetail() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeductionsExpanded, setIsDeductionsExpanded] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
   const fetchDetail = useCallback(async () => {
@@ -89,6 +91,10 @@ export default function SettlementDetail() {
   const ledgers = data.ledgers || [];
 
   const totalAmount = Number(settlement.total_amount || 0);
+  const totalDeductions =
+    Number(breakup.platformFees || 0) +
+    Number(breakup.returns || 0) +
+    Number(breakup.manualAdjustments || 0);
 
   return (
     <div className="space-y-6 animate-fade-in pb-10 max-w-5xl mx-auto">
@@ -196,19 +202,78 @@ export default function SettlementDetail() {
                 ₹{Number(breakup.grossSales || 0).toLocaleString()}
               </div>
             </div>
-            <div className="flex items-center justify-between p-5 hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-50 text-red-600 rounded-lg">
-                  <TrendingDown className="h-4 w-4" />
+
+            <div className="flex flex-col">
+              <div
+                className="flex items-center justify-between p-5 hover:bg-slate-50 transition-colors cursor-pointer group"
+                onClick={() => setIsDeductionsExpanded(!isDeductionsExpanded)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-50 text-red-600 rounded-lg group-hover:scale-105 transition-transform duration-300">
+                    <TrendingDown className="h-4 w-4" />
+                  </div>
+                  <div className="font-semibold text-slate-700">
+                    Deductions & Fees
+                  </div>
                 </div>
-                <div className="font-semibold text-slate-700">
-                  Platform Fees & Deductions
+                <div className="flex items-center gap-3">
+                  <div className="font-bold text-red-500">
+                    -₹{totalDeductions.toLocaleString()}
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      "h-5 w-5 text-slate-400 transition-transform duration-300",
+                      isDeductionsExpanded && "rotate-180",
+                    )}
+                  />
                 </div>
               </div>
-              <div className="font-bold text-red-500">
-                -₹{Number(breakup.platformFees || 0).toLocaleString()}
+
+              <div
+                className={cn(
+                  "grid transition-all duration-300 ease-in-out bg-slate-50 border-t border-slate-100/50",
+                  isDeductionsExpanded
+                    ? "grid-rows-[1fr] opacity-100"
+                    : "grid-rows-[0fr] opacity-0",
+                )}
+              >
+                <div className="overflow-hidden">
+                  <div className="flex flex-col divide-y divide-slate-100/50 px-5 pb-2">
+                    <div className="flex items-center justify-between py-3 pl-12 pr-10 hover:bg-slate-100/50 transition-colors rounded-lg mb-1 mt-2">
+                      <div className="text-sm font-medium text-slate-600">
+                        Platform Fees & Deductions
+                      </div>
+                      <div className="text-sm font-semibold text-red-500">
+                        {Number(breakup.platformFees || 0) > 0
+                          ? `-₹${Number(breakup.platformFees || 0).toLocaleString()}`
+                          : "₹0"}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between py-3 pl-12 pr-10 hover:bg-slate-100/50 transition-colors rounded-lg mb-1">
+                      <div className="text-sm font-medium text-slate-600">
+                        Returns
+                      </div>
+                      <div className="text-sm font-semibold text-red-500">
+                        {Number(breakup.returns || 0) > 0
+                          ? `-₹${Number(breakup.returns || 0).toLocaleString()}`
+                          : "₹0"}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between py-3 pl-12 pr-10 hover:bg-slate-100/50 transition-colors rounded-lg mb-1">
+                      <div className="text-sm font-medium text-slate-600">
+                        Manual Adjustments/Fees
+                      </div>
+                      <div className="text-sm font-semibold text-red-500">
+                        {Number(breakup.manualAdjustments || 0) > 0
+                          ? `-₹${Number(breakup.manualAdjustments || 0).toLocaleString()}`
+                          : "₹0"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
+
             <div className="flex items-center justify-between p-6 bg-slate-50/50">
               <div className="font-bold text-slate-900 text-lg">
                 Net Amount Settled
@@ -232,16 +297,25 @@ export default function SettlementDetail() {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Date
+                    Date & Time
                   </th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    ORDER NO / DISPATCH
+                    Order ID
                   </th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Product
+                    Order Details
+                  </th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Student Name
                   </th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">
                     Amount
+                  </th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">
+                    Qty
+                  </th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Status
                   </th>
                 </tr>
               </thead>
@@ -249,7 +323,7 @@ export default function SettlementDetail() {
                 {!ledgers || ledgers.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={7}
                       className="px-6 py-8 text-center text-slate-500"
                     >
                       No transactions found.
@@ -274,6 +348,34 @@ export default function SettlementDetail() {
                     const productName =
                       (ledger.order_items?.title || "Transaction") +
                       (isDebit ? " (Fee)" : "");
+                    const studentName =
+                      ledger.orders?.shipping_address?.studentName ||
+                      "—";
+                    const qty = ledger.order_items?.quantity || "—";
+                    const status = ledger.order_items?.status || "—";
+
+                    const statusLabelMap = {
+                      initialized: "New",
+                      processed: "Processed",
+                      shipped: "Shipped",
+                      out_for_delivery: "Out for Delivery",
+                      delivered: "Delivered",
+                      cancelled: "Cancelled",
+                      refunded: "Refunded",
+                    };
+
+                    const statusBadgeMap = {
+                      initialized: "initialized",
+                      processed: "processing",
+                      shipped: "shipped",
+                      out_for_delivery: "out_for_delivery",
+                      delivered: "delivered",
+                      cancelled: "cancelled",
+                      refunded: "refunded",
+                    };
+
+                    const badgeVariant = statusBadgeMap[status] || "default";
+                    const displayStatus = statusLabelMap[status] || status;
 
                     return (
                       <tr
@@ -302,6 +404,9 @@ export default function SettlementDetail() {
                         >
                           {productName}
                         </td>
+                        <td className="px-6 py-4 text-sm font-medium text-slate-900 truncate max-w-[180px]">
+                          {studentName}
+                        </td>
                         <td className="px-6 py-4 text-right">
                           <div
                             className={cn(
@@ -311,6 +416,20 @@ export default function SettlementDetail() {
                           >
                             {isDebit ? "-" : ""}₹{amount.toLocaleString()}
                           </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-sm font-medium text-slate-900">
+                            {qty}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {status !== "—" ? (
+                            <Badge variant={badgeVariant} dot>
+                              {displayStatus}
+                            </Badge>
+                          ) : (
+                            <span className="text-sm text-slate-500">—</span>
+                          )}
                         </td>
                       </tr>
                     );
