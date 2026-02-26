@@ -276,7 +276,17 @@ export default function SettlementDetail() {
                     return (
                       <tr
                         key={ledger.id || idx}
-                        className="hover:bg-slate-50/50 transition-colors"
+                        className={cn(
+                          "hover:bg-slate-50/50 transition-colors",
+                          ledger.order_items?.id && "cursor-pointer",
+                        )}
+                        onClick={() => {
+                          if (ledger.order_items?.id) {
+                            navigate(
+                              `/dashboard/orders/${ledger.order_items.id}`,
+                            );
+                          }
+                        }}
                       >
                         <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
                           {date}
