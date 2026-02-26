@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useWarehouse } from "@/context/WarehouseContext";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -13,7 +14,55 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Info,
 } from "lucide-react";
+
+// ─── Info Tooltip (Portal-based, escapes overflow containers) ───────────────
+function InfoTooltip({ text }) {
+  const iconRef = useRef(null);
+  const [show, setShow] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  const handleEnter = () => {
+    if (iconRef.current) {
+      const rect = iconRef.current.getBoundingClientRect();
+      setPos({
+        top: rect.top - 8,
+        left: rect.left + rect.width / 2,
+      });
+    }
+    setShow(true);
+  };
+
+  return (
+    <span className="inline-flex items-center ml-1.5" style={{ verticalAlign: 'middle' }}>
+      <span
+        ref={iconRef}
+        onMouseEnter={handleEnter}
+        onMouseLeave={() => setShow(false)}
+        className="inline-flex cursor-default"
+      >
+        <Info className="h-3.5 w-3.5 text-slate-400 hover:text-blue-500 transition-colors" />
+      </span>
+      {show &&
+        createPortal(
+          <div
+            style={{ top: pos.top, left: pos.left, transform: 'translate(-50%, -100%)' }}
+            className="fixed z-[9999] pointer-events-none"
+          >
+            <div className="w-56 rounded-xl bg-slate-800 text-white text-xs leading-relaxed px-3 py-2 shadow-xl text-center">
+              {text}
+            </div>
+            {/* Arrow pointing down */}
+            <div className="flex justify-center -mt-[1px]">
+              <span className="border-4 border-transparent border-t-slate-800" />
+            </div>
+          </div>,
+          document.body,
+        )}
+    </span>
+  );
+}
 import { cn } from "@/lib/utils";
 import { settlementService } from "@/services/settlementService";
 import { useNavigate } from "react-router-dom";
@@ -114,9 +163,9 @@ export default function SettlementsPage() {
         const response = await settlementService.getRetailerLedgers(params);
         setLedgersData(
           response?.data?.data ||
-            response?.data?.entries ||
-            response?.data ||
-            [],
+          response?.data?.entries ||
+          response?.data ||
+          [],
         );
         if (response?.data?.pagination) {
           setTotalPages(response.data.pagination.totalPages || 1);
@@ -134,9 +183,9 @@ export default function SettlementsPage() {
         const response = await settlementService.getRetailerLedgers(params);
         setLedgersData(
           response?.data?.data ||
-            response?.data?.entries ||
-            response?.data ||
-            [],
+          response?.data?.entries ||
+          response?.data ||
+          [],
         );
         if (response?.data?.pagination) {
           setTotalPages(response.data.pagination.totalPages || 1);
@@ -149,9 +198,9 @@ export default function SettlementsPage() {
         const response = await settlementService.getRetailerHistory(params);
         setHistoryData(
           response?.data?.data ||
-            response?.data?.records ||
-            response?.data ||
-            [],
+          response?.data?.records ||
+          response?.data ||
+          [],
         );
         if (response?.data?.pagination) {
           setHistoryTotalPages(response.data.pagination.totalPages || 1);
@@ -193,7 +242,15 @@ export default function SettlementsPage() {
       iconColor: "text-emerald-600",
     },
     {
-      title: "To Be Settled",
+      title: "Last Settlement",
+      value: formatDateStr(summaryData.last_settlement_date),
+      subtext: "Most recent payout",
+      icon: Clock,
+      iconBg: "bg-violet-50",
+      iconColor: "text-violet-600",
+    },
+    {
+      title: "Today's Settled",
       value: !summaryData.to_be_settled
         ? "NA"
         : formatAmountK(summaryData.to_be_settled),
@@ -201,14 +258,6 @@ export default function SettlementsPage() {
       icon: Wallet,
       iconBg: "bg-amber-50",
       iconColor: "text-amber-600",
-    },
-    {
-      title: "Last Settlement",
-      value: formatDateStr(summaryData.last_settlement_date),
-      subtext: "Most recent payout",
-      icon: Clock,
-      iconBg: "bg-violet-50",
-      iconColor: "text-violet-600",
     },
     {
       title: "Next Settlement",
@@ -248,7 +297,7 @@ export default function SettlementsPage() {
                 Status
               </th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">
-                Payment Status
+                Settlement Status
               </th>
             </tr>
           </thead>
@@ -344,7 +393,7 @@ export default function SettlementsPage() {
                         className={cn(
                           "capitalize text-[11px] font-bold px-3",
                           paymentStatus === "AVAILABLE" &&
-                            "bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200 shadow-sm",
+                          "bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200 shadow-sm",
                         )}
                       >
                         {paymentStatus === "ON_HOLD"
@@ -619,35 +668,38 @@ export default function SettlementsPage() {
           <button
             onClick={() => handleTabChange("all_settlements")}
             className={cn(
-              "px-6 py-3 text-sm font-semibold whitespace-nowrap transition-all border-b-2",
+              "inline-flex items-center px-6 py-3 text-sm font-semibold whitespace-nowrap transition-all border-b-2",
               activeTab === "all_settlements"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:text-slate-800",
             )}
           >
             All Settlements (Payouts)
-          </button>
-          <button
-            onClick={() => handleTabChange("all_ledgers")}
-            className={cn(
-              "px-6 py-3 text-sm font-semibold whitespace-nowrap transition-all border-b-2",
-              activeTab === "all_ledgers"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-slate-500 hover:text-slate-800",
-            )}
-          >
-            All Ledgers
+            <InfoTooltip text="Shows all completed payout batches transferred to your bank account, along with their UTR/reference numbers and settlement dates." />
           </button>
           <button
             onClick={() => handleTabChange("current_cycle")}
             className={cn(
-              "px-6 py-3 text-sm font-semibold whitespace-nowrap transition-all border-b-2",
+              "inline-flex items-center px-6 py-3 text-sm font-semibold whitespace-nowrap transition-all border-b-2",
               activeTab === "current_cycle"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:text-slate-800",
             )}
           >
             Current Cycle (Unsettled)
+            <InfoTooltip text="Displays orders from the ongoing settlement cycle that are delivered but not yet paid out. These amounts will be included in your next scheduled bank transfer." />
+          </button>
+          <button
+            onClick={() => handleTabChange("all_ledgers")}
+            className={cn(
+              "inline-flex items-center px-6 py-3 text-sm font-semibold whitespace-nowrap transition-all border-b-2",
+              activeTab === "all_ledgers"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-slate-500 hover:text-slate-800",
+            )}
+          >
+            All Ledgers
+            <InfoTooltip text="A complete transaction-level history of every debit and credit — including delivered orders, returns, platform fees, and adjustments — across all time." />
           </button>
         </div>
 

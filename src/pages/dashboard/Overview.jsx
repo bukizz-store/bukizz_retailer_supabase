@@ -169,12 +169,12 @@ export default function Overview() {
                   </p>
                   <p
                     className={`flex items-center gap-1 text-sm ${!stat.change
-                        ? "invisible"
-                        : stat.changeType === "positive"
-                          ? "text-emerald-600"
-                          : stat.changeType === "warning"
-                            ? "text-amber-600"
-                            : "text-slate-500"
+                      ? "invisible"
+                      : stat.changeType === "positive"
+                        ? "text-emerald-600"
+                        : stat.changeType === "warning"
+                          ? "text-amber-600"
+                          : "text-slate-500"
                       }`}
                   >
                     {stat.changeType === "positive" && (
@@ -225,41 +225,44 @@ export default function Overview() {
                   </span>
                 </div>
               ) : data?.recentOrders?.length > 0 ? (
-                data.recentOrders.map((order) => (
-                  <Link
-                    key={order.id}
-                    to={`/dashboard/orders/${order.id}`}
-                    className="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-slate-50"
-                  >
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100">
-                      <Package className="h-5 w-5 text-slate-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-900">
-                        {order.items?.length > 0
-                          ? order.items.map(i => i.schoolName ? `${i.title} - ${i.schoolName}` : i.title).join(', ')
-                          : (order.orderNumber || order.id)}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <span>
-                          ₹{parseFloat(order.items?.[0].price || 0).toLocaleString()}
-                        </span>
-                        <span>·</span>
-                        <span>
-                          {order.items?.length} item
-                          {order.items?.length !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    </div>
-                    <Badge
-                      variant={statusBadgeVariant[order.status] || order.status}
-                      dot
-                      className="flex-shrink-0 text-xs"
+                data.recentOrders.map((order) => {
+                  console.log("Recent order:", order);
+                  return (
+                    <Link
+                      key={order.id}
+                      to={`/dashboard/orders/${order.items?.[0]?.id || order.id}`}
+                      className="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-slate-50"
                     >
-                      {statusLabelMap[order.status] || order.status}
-                    </Badge>
-                  </Link>
-                ))
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100">
+                        <Package className="h-5 w-5 text-slate-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {order.items?.length > 0
+                            ? order.items.map(i => i.schoolName ? `${i.title} - ${i.schoolName}` : i.title).join(', ')
+                            : (order.orderNumber || order.id)}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <span>
+                            ₹{parseFloat(order.items?.[0].price || 0).toLocaleString()}
+                          </span>
+                          <span>·</span>
+                          <span>
+                            {order.items?.length} item
+                            {order.items?.length !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge
+                        variant={statusBadgeVariant[order.status] || order.status}
+                        dot
+                        className="flex-shrink-0 text-xs"
+                      >
+                        {statusLabelMap[order.status] || order.status}
+                      </Badge>
+                    </Link>
+                  )
+                })
               ) : (
                 <div className="py-8 text-center text-sm text-slate-500">
                   No orders yet.

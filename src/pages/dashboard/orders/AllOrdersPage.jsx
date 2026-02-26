@@ -273,7 +273,7 @@ function AllOrderRow({ order, onViewOrder }) {
         <tr className="transition-colors hover:bg-slate-50 cursor-pointer" onClick={handleRowClick}>
             {/* Order ID */}
             <td className="px-6 py-4">
-                <p className="font-mono text-sm font-medium text-blue-600 truncate max-w-[120px]" title={order.id}>{shortId}</p>
+                <p className="font-mono text-sm font-medium text-blue-600 truncate max-w-[120px]" title={order.items[0]?.dispatchId}>{order.items[0]?.dispatchId}</p>
             </td>
 
             {/* Order Details */}
