@@ -225,7 +225,7 @@ export default function CancelledOrdersPage() {
                                         <tr
                                             key={order.id}
                                             className="transition-colors hover:bg-slate-50 cursor-pointer"
-                                            onClick={() => navigate(`/dashboard/orders/${order.id}`)}
+                                            onClick={() => navigate(`/dashboard/orders/${order.items?.[0]?.id || order.id}`)}
                                         >
                                             {/* Order Details */}
                                             <td className="px-6 py-4">
