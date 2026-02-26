@@ -218,7 +218,7 @@ export default function AllOrdersPage() {
                                     <AllOrderRow
                                         key={order.id}
                                         order={order}
-                                        onViewOrder={() => navigate(`/dashboard/orders/${order.id}`)}
+                                        onViewOrder={() => navigate(`/dashboard/orders/${order.items?.[0]?.id || order.id}`)}
                                     />
                                 ))
                             )}
