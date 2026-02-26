@@ -301,19 +301,18 @@ export default function OrderViewPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            ${
-                              order.items
-                                ?.map(
-                                  (item) => `
+                            ${order.items
+        ?.map(
+          (item) => `
                             <tr>
                                 <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ""}</td>
                                 <td style="text-align: center;">${order.totalAmount || item.totalPrice || item.unitPrice * (item.quantity || 1)}</td>
                                 <td style="text-align: center;">Prepaid</td>
                             </tr>
                             `,
-                                )
-                                .join("") || ""
-                            }
+        )
+        .join("") || ""
+      }
                         </tbody>
                     </table>
                     
@@ -393,9 +392,13 @@ export default function OrderViewPage() {
                 {statusLabelMap[status] || status}
               </Badge>
             </div>
-            <p className="mt-0.5 text-sm text-slate-500">
-              Placed on {formatDate(order.createdAt)}
-            </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+              <span className="flex items-center gap-1">
+                Order ID: <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">{order.id}</span>
+              </span>
+              <span className="text-slate-300 hidden sm:inline">•</span>
+              <span>Placed on {formatDate(order.createdAt)}</span>
+            </div>
           </div>
         </div>
         <div className="flex gap-3">
@@ -583,14 +586,19 @@ export default function OrderViewPage() {
                           </div>
                         )}
 
-                        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
+                          {item.id && (
+                            <span className="flex items-center gap-1 text-slate-600 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-md" title="Order Item ID">
+                              <Hash className="h-3 w-3 text-slate-400" /> <span className="font-mono text-[10px]">{item.id}</span>
+                            </span>
+                          )}
                           {item.sku && (
                             <span className="flex items-center gap-1">
-                              <Hash className="h-3 w-3" /> {item.sku}
+                              <Hash className="h-3 w-3 text-slate-400" /> {item.sku}
                             </span>
                           )}
                           <span className="flex items-center gap-1">
-                            <Box className="h-3 w-3" /> Qty: {item.quantity}
+                            <Box className="h-3 w-3 text-slate-400" /> Qty: {item.quantity}
                           </span>
                           {item.variant?.compareAtPrice > item.unitPrice && (
                             <span className="flex items-center gap-1 text-emerald-600">
@@ -713,7 +721,7 @@ export default function OrderViewPage() {
                       <p className="text-xs text-slate-500">
                         {user?.role
                           ? user.role.charAt(0).toUpperCase() +
-                            user.role.slice(1)
+                          user.role.slice(1)
                           : "Customer"}
                       </p>
                     </div>
