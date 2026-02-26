@@ -54,24 +54,8 @@ export default function SettlementDetail() {
     return `#${fullId.replace(/-/g, "").slice(-8).toUpperCase()}`;
   };
 
-  const calculateBreakdown = (ledgers = []) => {
-    let grossSales = 0;
-    let platformFees = 0;
-
-    ledgers.forEach((ledger) => {
-      const amount = Number(ledger.amount || 0);
-      if (
-        ledger.transaction_type === "PLATFORM_FEE" ||
-        ledger.entry_type === "DEBIT"
-      ) {
-        platformFees += amount;
-      } else {
-        grossSales += amount;
-      }
-    });
-
-    return { grossSales, platformFees };
-  };
+  // No need to calculate breakdown manually anymore since API provides 'breakup' object
+  // But we'll keep the function signature empty or remove it.
 
   if (isLoading) {
     return (
@@ -97,8 +81,11 @@ export default function SettlementDetail() {
     );
   }
 
-  const { grossSales, platformFees } = calculateBreakdown(data.ledgers || []);
-  const totalAmount = Number(data.total_amount || 0);
+  const settlement = data.settlement || {};
+  const breakup = data.breakup || { grossSales: 0, platformFees: 0 };
+  const ledgers = data.ledgers || [];
+
+  const totalAmount = Number(settlement.total_amount || 0);
 
   return (
     <div className="space-y-6 animate-fade-in pb-10 max-w-5xl mx-auto">
@@ -122,15 +109,15 @@ export default function SettlementDetail() {
             </span>
             <span className="mx-2">›</span>
             <span className="text-slate-900 font-medium truncate max-w-[150px]">
-              {shortenId(data.id)}
+              {shortenId(settlement.id)}
             </span>
           </nav>
         </div>
-        {data.receipt_url && (
+        {settlement.receipt_url && (
           <Button
             variant="outline"
             className="h-9 border-blue-200 text-blue-700 hover:bg-blue-50"
-            onClick={() => window.open(data.receipt_url, "_blank")}
+            onClick={() => window.open(settlement.receipt_url, "_blank")}
           >
             <FileText className="h-4 w-4 mr-2" /> View Bank Receipt{" "}
             <ExternalLink className="h-3 w-3 ml-2" />
@@ -146,7 +133,7 @@ export default function SettlementDetail() {
               <h1 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">
                 Settlement ID:{" "}
                 <span className="text-slate-600 font-mono tracking-normal">
-                  {data.id}
+                  {settlement.id}
                 </span>
               </h1>
               <div className="flex items-center gap-3">
@@ -157,13 +144,14 @@ export default function SettlementDetail() {
                   variant="success"
                   className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none px-3 py-1"
                 >
-                  <CheckCircle2 className="h-3 w-3 mr-1" /> COMPLETED
+                  <CheckCircle2 className="h-3 w-3 mr-1" />{" "}
+                  {settlement.status || "COMPLETED"}
                 </Badge>
               </div>
               <p className="mt-3 text-sm text-slate-500 font-medium">
                 Initiated on{" "}
                 <span className="text-slate-700">
-                  {formatDateStr(data.created_at)}
+                  {formatDateStr(settlement.created_at)}
                 </span>
               </p>
             </div>
@@ -178,7 +166,7 @@ export default function SettlementDetail() {
                 </div>
                 <div>
                   <div className="text-sm font-bold text-slate-900">
-                    {data.reference_number || "—"}
+                    {settlement.reference_number || "—"}
                   </div>
                   <div className="text-xs text-slate-500">UTR Number</div>
                 </div>
@@ -203,7 +191,7 @@ export default function SettlementDetail() {
                 <div className="font-semibold text-slate-700">Gross Sales</div>
               </div>
               <div className="font-bold text-slate-900">
-                ₹{grossSales.toLocaleString()}
+                ₹{Number(breakup.grossSales || 0).toLocaleString()}
               </div>
             </div>
             <div className="flex items-center justify-between p-5 hover:bg-slate-50 transition-colors">
@@ -216,7 +204,7 @@ export default function SettlementDetail() {
                 </div>
               </div>
               <div className="font-bold text-red-500">
-                -₹{platformFees.toLocaleString()}
+                -₹{Number(breakup.platformFees || 0).toLocaleString()}
               </div>
             </div>
             <div className="flex items-center justify-between p-6 bg-slate-50/50">
@@ -256,7 +244,7 @@ export default function SettlementDetail() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {!data.ledgers || data.ledgers.length === 0 ? (
+                {!ledgers || ledgers.length === 0 ? (
                   <tr>
                     <td
                       colSpan={4}
@@ -266,11 +254,15 @@ export default function SettlementDetail() {
                     </td>
                   </tr>
                 ) : (
-                  data.ledgers.map((ledger, idx) => {
+                  ledgers.map((ledger, idx) => {
                     const isDebit =
                       ledger.entry_type === "DEBIT" ||
                       ledger.transaction_type === "PLATFORM_FEE";
-                    const amount = Number(ledger.amount || 0);
+                    const amount = Number(
+                      ledger.amount_applied_in_this_settlement ||
+                        ledger.amount ||
+                        0,
+                    );
                     const date = ledger.orders?.created_at
                       ? formatDateStr(ledger.orders.created_at)
                       : formatDateStr(ledger.created_at);
