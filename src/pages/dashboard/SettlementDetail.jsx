@@ -9,6 +9,8 @@ import {
   TrendingUp,
   ExternalLink,
   CheckCircle2,
+  X,
+  Printer,
   ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -23,6 +25,7 @@ export default function SettlementDetail() {
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeductionsExpanded, setIsDeductionsExpanded] = useState(false);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     setIsLoading(true);
@@ -123,10 +126,9 @@ export default function SettlementDetail() {
           <Button
             variant="outline"
             className="h-9 border-blue-200 text-blue-700 hover:bg-blue-50"
-            onClick={() => window.open(settlement.receipt_url, "_blank")}
+            onClick={() => setIsReceiptModalOpen(true)}
           >
-            <FileText className="h-4 w-4 mr-2" /> View Bank Receipt{" "}
-            <ExternalLink className="h-3 w-3 ml-2" />
+            <FileText className="h-4 w-4 mr-2" /> View Bank Receipt
           </Button>
         )}
       </div>
@@ -334,8 +336,8 @@ export default function SettlementDetail() {
                       ledger.transaction_type === "PLATFORM_FEE";
                     const amount = Number(
                       ledger.amount_applied_in_this_settlement ||
-                        ledger.amount ||
-                        0,
+                      ledger.amount ||
+                      0,
                     );
                     const date = ledger.orders?.created_at
                       ? formatDateStr(ledger.orders.created_at)
@@ -438,6 +440,79 @@ export default function SettlementDetail() {
           </div>
         </div>
       </div>
+
+      {/* Receipt Modal Overlay */}
+      {isReceiptModalOpen && settlement?.receipt_url && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] ring-1 ring-slate-200">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-white">
+              <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                <FileText className="h-5 w-5 text-blue-600" />
+                Bank Receipt
+              </h3>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-slate-600 hover:text-slate-900 bg-white"
+                  onClick={() => {
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = settlement.receipt_url;
+                    document.body.appendChild(iframe);
+
+                    iframe.onload = () => {
+                      try {
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                      } catch (e) {
+                        window.open(settlement.receipt_url, '_blank');
+                      }
+                      setTimeout(() => document.body.removeChild(iframe), 2000);
+                    };
+                  }}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-blue-600 hover:text-blue-700 hover:border-blue-200 bg-blue-50/50"
+                  onClick={() => window.open(settlement.receipt_url, "_blank")}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+                <div className="w-px h-6 bg-slate-200 mx-1"></div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsReceiptModalOpen(false)}
+                  className="text-slate-500 hover:text-slate-800 bg-slate-100/50 hover:bg-slate-100 rounded-full h-8 w-8"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 bg-slate-100/80 p-4 overflow-auto flex items-center justify-center relative">
+              {/\.(jpeg|jpg|gif|png|webp|bmp)$/i.test(settlement.receipt_url) ? (
+                <img
+                  src={settlement.receipt_url}
+                  alt="Bank Receipt"
+                  className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
+                />
+              ) : (
+                <iframe
+                  src={settlement.receipt_url}
+                  className="w-full h-full min-h-[70vh] rounded-lg shadow-sm bg-white border border-slate-200"
+                  title="Bank Receipt"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
