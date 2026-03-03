@@ -138,27 +138,27 @@ export default function ReturnsPage() {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="flex items-center gap-4 rounded-xl border-2 border-violet-200 bg-violet-50 p-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-violet-100">
-                        <RotateCcw className="h-6 w-6 text-violet-600" />
+                <div className="relative flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all hover:shadow-md bg-white border-slate-200">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                        <RotateCcw className="h-5 w-5" />
                     </div>
                     <div>
                         <span className="text-2xl font-bold text-slate-900">{isLoading ? '—' : totalCount}</span>
-                        <p className="text-sm font-medium text-violet-600">Total Returns</p>
+                        <p className="text-sm font-medium text-slate-600">Total Returns</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-100">
-                        <IndianRupee className="h-6 w-6 text-emerald-600" />
+                <div className="relative flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all hover:shadow-md bg-white border-slate-200">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                        <IndianRupee className="h-5 w-5" />
                     </div>
                     <div>
                         <span className="text-2xl font-bold text-slate-900">{isLoading ? '—' : formatCurrency(totalRefundAmount)}</span>
-                        <p className="text-sm font-medium text-emerald-600">Total Refunded</p>
+                        <p className="text-sm font-medium text-slate-600">Total Refunded</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-4 rounded-xl border-2 border-slate-200 bg-slate-50 p-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100">
-                        <Package className="h-6 w-6 text-slate-500" />
+                <div className="relative flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all hover:shadow-md bg-white border-slate-200">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                        <Package className="h-5 w-5" />
                     </div>
                     <div>
                         <span className="text-2xl font-bold text-slate-900">{isLoading ? '—' : totalItemsReturned}</span>
@@ -183,12 +183,13 @@ export default function ReturnsPage() {
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-slate-200 bg-slate-50">
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Order ID</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Order Details</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Customer</th>
-                                <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Items</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-slate-900">Refund Amount</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Refunded On</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Status</th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Date &amp; Time</th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Student Name</th>
+                                <th className="px-6 py-4 text-right text-sm font-semibold text-slate-900">Amount</th>
+                                <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Qty</th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900" style={{ minWidth: '140px' }}>Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -216,9 +217,14 @@ export default function ReturnsPage() {
                                     const isSchoolOrder = order.items?.some(
                                         (item) => item.productSnapshot?.productType === 'bookset' || item.productSnapshot?.productType === 'uniform'
                                     );
-                                    const customerName = order.shippingAddress?.recipientName || order.contactEmail || 'Customer';
-                                    const city = order.shippingAddress?.city || '';
-                                    const amount = Number(order.totalAmount || 0);
+                                    const studentName = order.shippingAddress?.studentName || order.contactEmail || 'Student';
+                                    const amount = order.items?.[0]?.unitPrice || order.totalAmount || 0;
+                                    const createdAtDate = order.createdAt
+                                        ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                                        : '—';
+                                    const createdAtTime = order.createdAt
+                                        ? new Date(order.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+                                        : '';
 
                                     return (
                                         <tr
@@ -226,54 +232,47 @@ export default function ReturnsPage() {
                                             className="transition-colors hover:bg-slate-50 cursor-pointer"
                                             onClick={() => navigate(`/dashboard/orders/${order.items?.[0]?.id || order.id}`)}
                                         >
-                                            {/* Order Details */}
+                                            {/* Order ID */}
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={cn(
-                                                        "flex h-10 w-10 items-center justify-center rounded-lg",
-                                                        isSchoolOrder ? "bg-violet-100" : "bg-slate-100"
-                                                    )}>
-                                                        {isSchoolOrder
-                                                            ? <GraduationCap className="h-5 w-5 text-violet-600" />
-                                                            : <ShoppingBag className="h-5 w-5 text-slate-400" />}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-mono text-sm font-semibold text-blue-600" title={order.id}>
-                                                            {shortenOrderId(order)}
-                                                        </p>
-                                                        <p className="mt-0.5 text-xs text-slate-500">{formatDate(order.createdAt)}</p>
-                                                    </div>
+                                                <p className="font-mono text-sm font-medium text-blue-600 truncate max-w-[120px]" title={order.items?.[0]?.dispatchId}>{order.items?.[0]?.dispatchId}</p>
+                                            </td>
+
+                                            {/* Order Details */}
+                                            <td className="px-6 py-4 w-1/4">
+                                                <div className="flex flex-col gap-1">
+                                                    {order.items?.map((item, idx) => (
+                                                        <div key={idx} className="text-sm">
+                                                            <p className="font-medium text-slate-900 line-clamp-2" title={item.title || item.productSnapshot?.name}>
+                                                                {item.schoolName ? `${item.title || item.productSnapshot?.name} - ${item.schoolName}` : (item.title || item.productSnapshot?.name)}
+                                                            </p>
+                                                            {(item.variantDetail || item.productSnapshot?.variantName) && (
+                                                                <p className="text-xs text-slate-500">{item.variantDetail || item.productSnapshot?.variantName}</p>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                    {(!order.items || order.items.length === 0) && <span className="text-sm text-slate-400">No details</span>}
                                                 </div>
                                             </td>
 
-                                            {/* Customer */}
-                                            <td className="px-6 py-4">
-                                                <p className="text-sm font-medium text-slate-900 truncate max-w-[180px]">{customerName}</p>
-                                                {city && (
-                                                    <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
-                                                        <MapPin className="h-3 w-3" /> {city}
-                                                    </div>
-                                                )}
+                                            {/* Date & Time */}
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <p className="text-sm text-slate-900">{createdAtDate}</p>
+                                                <p className="text-xs text-slate-500 mt-0.5">{createdAtTime}</p>
                                             </td>
 
-                                            {/* Items count */}
-                                            <td className="px-6 py-4 text-center">
-                                                <span className="inline-flex items-center justify-center h-7 min-w-[28px] rounded-full bg-slate-100 px-2 text-sm font-medium text-slate-700">
-                                                    {order.items?.length || 0}
-                                                </span>
+                                            {/* Student Name */}
+                                            <td className="px-6 py-4">
+                                                <p className="text-sm font-medium text-slate-900 truncate max-w-[180px]">{studentName}</p>
                                             </td>
 
                                             {/* Amount */}
-                                            <td className="px-6 py-4 text-right">
-                                                <span className="font-bold text-emerald-600">{formatCurrency(amount)}</span>
-                                            </td>
+                                            <td className="px-6 py-4 text-right font-bold text-slate-900">₹{amount.toLocaleString()}</td>
 
-                                            {/* Refunded On */}
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Calendar className="h-4 w-4 text-slate-400" />
-                                                    <span className="text-sm text-slate-700">{formatDate(order.updatedAt)}</span>
-                                                </div>
+                                            {/* Qty */}
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="text-sm font-medium text-slate-900">
+                                                    {order.items?.reduce((acc, item) => acc + (item.quantity || 1), 0) || order.itemCount || 0}
+                                                </span>
                                             </td>
 
                                             {/* Status */}

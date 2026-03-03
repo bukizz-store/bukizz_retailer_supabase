@@ -209,13 +209,12 @@ export default function OrderViewPage() {
 
     setIsUpdating(true);
     try {
-      await orderService.updateOrderStatus(order.id, {
+      await orderService.updateOrderItemStatus(order.id, order.items[0].id, {
         status: nextStatus,
         note: note,
       });
       setOrder((prev) => ({
         ...prev,
-        status: nextStatus,
         items: (prev.items || []).map((item) => ({
           ...item,
           status: nextStatus,
