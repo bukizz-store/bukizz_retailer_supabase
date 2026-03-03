@@ -68,13 +68,13 @@ const useOrderStore = create((set, get) => ({
   },
 
   /**
-   * Update the status of an order (e.g., mark as processed/confirmed).
+   * Update the status of an order item (e.g., mark as processed/shipped).
    */
-  updateOrderStatus: async (orderId, newStatus, note = "") => {
+  updateOrderItemStatus: async (orderId, itemId, newStatus, note = "") => {
     set({ isUpdatingStatus: true, error: null });
 
     try {
-      await orderService.updateOrderStatus(orderId, {
+      await orderService.updateOrderItemStatus(orderId, itemId, {
         status: newStatus,
         note,
       });
@@ -84,10 +84,12 @@ const useOrderStore = create((set, get) => ({
         orders: state.orders.map((order) =>
           order.id === orderId
             ? {
-                ...order,
-                status: newStatus,
-                items: (order.items || []).map((item) => ({ ...item, status: newStatus })),
-              }
+              ...order,
+              itemCount: order.itemCount, // preserve
+              items: (order.items || []).map((item) =>
+                item.id === itemId ? { ...item, status: newStatus } : item
+              ),
+            }
             : order
         ),
         isUpdatingStatus: false,
@@ -98,7 +100,7 @@ const useOrderStore = create((set, get) => ({
       const message =
         error.response?.data?.message ||
         error.response?.data?.error ||
-        "Failed to update order status.";
+        "Failed to update order item status.";
       set({ error: message, isUpdatingStatus: false });
       return { success: false, error: message };
     }

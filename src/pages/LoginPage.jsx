@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Mail, Lock, ArrowRight } from "lucide-react";
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import useAuthStore from "@/store/authStore";
 
 const loginSchema = z.object({
@@ -16,6 +16,7 @@ const loginSchema = z.object({
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [showPassword, setShowPassword] = React.useState(false);
   const { login, runPostLoginChecks, error, clearError } = useAuthStore();
 
   const from = location.state?.from?.pathname || "/dashboard/overview";
@@ -167,11 +168,24 @@ export default function LoginPage() {
             <div>
               <Input
                 label="Password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 icon={<Lock className="w-5 h-5" />}
                 {...register("password")}
                 error={errors.password?.message}
+                rightElement={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-slate-400 hover:text-slate-600 focus:outline-none p-1 pointer-events-auto"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                }
               />
               <div className="mt-2 flex justify-end">
                 <Link

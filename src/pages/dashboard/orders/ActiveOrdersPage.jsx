@@ -80,7 +80,7 @@ export default function ActiveOrdersPage() {
         orders, totalCount, isLoading, isUpdatingStatus, error,
         statusFilter, searchQuery, page, limit,
         fetchOrders, setStatusFilter, setSearchQuery, setPage, setLimit,
-        updateOrderStatus, clearError,
+        updateOrderItemStatus, clearError,
     } = useOrderStore();
 
     const { activeWarehouse } = useWarehouse();
@@ -147,10 +147,10 @@ export default function ActiveOrdersPage() {
     };
 
     // ── Actions ──
-    const handleUpdateStatus = async (orderId, currentStatus) => {
+    const handleUpdateStatus = async (orderId, itemId, currentStatus) => {
         const nextStatus = currentStatus === 'initialized' ? 'processed' : 'shipped';
         const note = currentStatus === 'initialized' ? 'Confirmed by retailer' : 'Shipped by retailer';
-        const result = await updateOrderStatus(orderId, nextStatus, note);
+        const result = await updateOrderItemStatus(orderId, itemId, nextStatus, note);
         if (result.success) fetchOrders(warehouseId);
     };
 
@@ -253,10 +253,10 @@ export default function ActiveOrdersPage() {
         for (const orderId of selectedOrders) {
             const order = orders.find((o) => o.id === orderId);
             const status = getOrderStatus(order);
-            if (order && (status === 'initialized' || status === 'processed')) {
+            if (order && order.items?.length > 0 && (status === 'initialized' || status === 'processed')) {
                 const nextStatus = status === 'initialized' ? 'processed' : 'shipped';
                 const note = status === 'initialized' ? 'Bulk confirmed by retailer' : 'Bulk shipped by retailer';
-                await updateOrderStatus(orderId, nextStatus, note);
+                await updateOrderItemStatus(orderId, order.items[0].id, nextStatus, note);
             }
         }
         setSelectedOrders([]);
@@ -380,9 +380,9 @@ export default function ActiveOrdersPage() {
                                         order={order}
                                         isSelected={selectedOrders.includes(order.id)}
                                         onToggleSelect={() => toggleOrderSelection(order.id)}
-                                        onConfirm={() => handleUpdateStatus(order.id, status)}
+                                        onConfirm={() => handleUpdateStatus(order.id, order.items?.[0]?.id, status)}
                                         onPrintLabel={() => handlePrintLabel(order.id)}
-                                        onViewOrder={() => navigate(`/dashboard/orders/${order.items[0].id}`)}
+                                        onViewOrder={() => navigate(`/dashboard/orders/${order.items?.[0]?.id}`)}
                                         isUpdating={isUpdatingStatus}
                                     />
                                 ))
