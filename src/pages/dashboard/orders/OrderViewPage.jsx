@@ -29,6 +29,9 @@ import {
   FileText,
   Box,
   RefreshCw,
+  History,
+  XCircle,
+  RotateCcw,
 } from "lucide-react";
 
 // ── Status helpers (same as ActiveOrdersPage) ──────────────────────────────────
@@ -160,6 +163,12 @@ export default function OrderViewPage() {
             new Date().toISOString(),
           warehouseId: itemData.warehouseId || orderData.warehouseId,
           metadata: orderData.metadata || {},
+          // Pull event history from item-level statusEvents / tracking
+          statusEvents:
+            itemData.statusEvents ||
+            itemData.events ||
+            itemData.tracking?.events ||
+            [],
         };
       }
 
@@ -300,18 +309,19 @@ export default function OrderViewPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            ${order.items
-        ?.map(
-          (item) => `
+                            ${
+                              order.items
+                                ?.map(
+                                  (item) => `
                             <tr>
                                 <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ""}</td>
                                 <td style="text-align: center;">${order.totalAmount || item.totalPrice || item.unitPrice * (item.quantity || 1)}</td>
                                 <td style="text-align: center;">Prepaid</td>
                             </tr>
                             `,
-        )
-        .join("") || ""
-      }
+                                )
+                                .join("") || ""
+                            }
                         </tbody>
                     </table>
                     
@@ -393,7 +403,10 @@ export default function OrderViewPage() {
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-500">
               <span className="flex items-center gap-1">
-                Order ID: <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">{order.id}</span>
+                Order ID:{" "}
+                <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
+                  {order.id}
+                </span>
               </span>
               <span className="text-slate-300 hidden sm:inline">•</span>
               <span>Placed on {formatDate(order.createdAt)}</span>
@@ -587,17 +600,25 @@ export default function OrderViewPage() {
 
                         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
                           {item.id && (
-                            <span className="flex items-center gap-1 text-slate-600 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-md" title="Order Item ID">
-                              <Hash className="h-3 w-3 text-slate-400" /> <span className="font-mono text-[10px]">{item.id}</span>
+                            <span
+                              className="flex items-center gap-1 text-slate-600 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-md"
+                              title="Order Item ID"
+                            >
+                              <Hash className="h-3 w-3 text-slate-400" />{" "}
+                              <span className="font-mono text-[10px]">
+                                {item.id}
+                              </span>
                             </span>
                           )}
                           {item.sku && (
                             <span className="flex items-center gap-1">
-                              <Hash className="h-3 w-3 text-slate-400" /> {item.sku}
+                              <Hash className="h-3 w-3 text-slate-400" />{" "}
+                              {item.sku}
                             </span>
                           )}
                           <span className="flex items-center gap-1">
-                            <Box className="h-3 w-3 text-slate-400" /> Qty: {item.quantity}
+                            <Box className="h-3 w-3 text-slate-400" /> Qty:{" "}
+                            {item.quantity}
                           </span>
                           {item.variant?.compareAtPrice > item.unitPrice && (
                             <span className="flex items-center gap-1 text-emerald-600">
@@ -681,6 +702,18 @@ export default function OrderViewPage() {
             <AddressCard title="Shipping Address" address={shippingAddr} />
             <AddressCard title="Billing Address" address={billingAddr} />
           </div>
+
+          {/* ── Event History ── */}
+          {(order.statusEvents?.length > 0 ||
+            items[0]?.statusEvents?.length > 0) && (
+            <OrderEventHistory
+              events={
+                order.statusEvents?.length > 0
+                  ? order.statusEvents
+                  : items[0]?.statusEvents || []
+              }
+            />
+          )}
         </div>
 
         {/* Right column — 1/3 */}
@@ -720,7 +753,7 @@ export default function OrderViewPage() {
                       <p className="text-xs text-slate-500">
                         {user?.role
                           ? user.role.charAt(0).toUpperCase() +
-                          user.role.slice(1)
+                            user.role.slice(1)
                           : "Customer"}
                       </p>
                     </div>
@@ -901,6 +934,95 @@ function AddressCard({ title, address }) {
             </p>
           )}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Order Event History ─────────────────────────────────────────────────────────
+
+/** Per-status icon used inside the timeline node circle. */
+const eventStatusIcon = {
+  initialized: <Package className="h-3.5 w-3.5" />,
+  processed: <CheckCircle className="h-3.5 w-3.5" />,
+  shipped: <Truck className="h-3.5 w-3.5" />,
+  out_for_delivery: <Truck className="h-3.5 w-3.5" />,
+  delivered: <CheckCircle className="h-3.5 w-3.5" />,
+  cancelled: <XCircle className="h-3.5 w-3.5" />,
+  refunded: <RotateCcw className="h-3.5 w-3.5" />,
+};
+
+function OrderEventHistory({ events }) {
+  if (!events || events.length === 0) return null;
+
+  // Newest first
+  const sorted = [...events].sort(
+    (a, b) =>
+      new Date(b.createdAt || b.timestamp || 0) -
+      new Date(a.createdAt || a.timestamp || 0),
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <History className="h-5 w-5 text-blue-600" />
+          Event History
+          <span className="ml-auto text-xs font-normal text-slate-400">
+            {events.length} event{events.length !== 1 ? "s" : ""}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ol className="relative border-l border-slate-200">
+          {sorted.map((evt, idx) => {
+            const status = evt.status || evt.newStatus || "initialized";
+            const icon = eventStatusIcon[status] || (
+              <Clock className="h-3.5 w-3.5" />
+            );
+            const label = statusLabelMap[status] || status;
+            const actor =
+              evt.changedBy?.name || evt.actor || evt.updatedBy || null;
+            const note = evt.note || evt.description || null;
+            const timestamp = evt.createdAt || evt.timestamp || null;
+            const isLast = idx === sorted.length - 1;
+
+            return (
+              <li key={idx} className={cn("ml-6", !isLast && "pb-6")}>
+                {/* Icon circle */}
+                <span className="absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 ring-4 ring-white">
+                  {icon}
+                </span>
+
+                {/* Content */}
+                <div className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-slate-800">
+                      {label}
+                    </span>
+                    {timestamp && (
+                      <span className="flex items-center gap-1 text-xs text-slate-400">
+                        <Clock className="h-3 w-3" />
+                        {formatDate(timestamp)}
+                      </span>
+                    )}
+                  </div>
+
+                  {note && (
+                    <p className="mt-1 text-sm text-slate-500">{note}</p>
+                  )}
+
+                  {actor && (
+                    <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-400">
+                      <User className="h-3 w-3" />
+                      {actor}
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
       </CardContent>
     </Card>
   );
