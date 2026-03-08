@@ -98,7 +98,7 @@ export default function AddSchoolProductPage({ isEditMode = false }) {
           schoolCat: true,
         });
         const subCats = subData?.categories || subData || [];
-
+        console.log("subCats", subCats);
         setSchoolSubcategories(subCats);
       } catch (error) {
         console.error("Failed to fetch school categories:", error);
