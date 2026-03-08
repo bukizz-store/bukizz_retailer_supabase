@@ -32,13 +32,16 @@ export const productService = {
     });
     return response.data;
   },
-
-  getCategories: async ({ parentId = null } = {}) => {
+  // add attribute { schoolCat: true } in params
+  getCategories: async ({ parentId = null, schoolCat = false } = {}) => {
     const params = {};
     if (parentId) {
       params.parentId = parentId;
     } else {
       params.rootOnly = true;
+    }
+    if (schoolCat) {
+      params.schoolCat = schoolCat;
     }
     const response = await apiClient.get("/categories", { params });
     // Assuming backend returns { success: true, data: [...] } or just [...]
