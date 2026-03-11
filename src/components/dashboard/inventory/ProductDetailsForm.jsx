@@ -190,6 +190,9 @@ function BrandCombobox({ selected, onSelect, onAddNew, refreshKey }) {
 // Main Component
 // ────────────────────────────────────────────────────────────────
 const GRADE_OPTIONS = [
+  "PG",
+  "JKG",
+  "KG",
   "Nursery",
   "LKG",
   "UKG",
