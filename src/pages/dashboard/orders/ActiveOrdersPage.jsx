@@ -166,7 +166,8 @@ export default function ActiveOrdersPage() {
             address.line1,
             address.line2,
             `${address.city || ''}${address.city && address.state ? ', ' : ''}${address.state || ''} ${address.postalCode || ''}`.trim(),
-            order.contactPhone ? `Phone: ${order.contactPhone}` : ''
+            address.phone ? `Main Phone: ${address.phone}` : '',
+            order.contactPhone ? `Alternate Phone: ${order.contactPhone}` : ''
         ].filter(Boolean).join('<br/>');
 
         const retailerName = user?.fullName || user?.name || 'Retailer Name';
@@ -226,13 +227,16 @@ export default function ActiveOrdersPage() {
                             ${order.items?.map(item => `
                             <tr>
                                 <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ''}</td>
-                                <td style="text-align: center;">Prepaid</td>
+                                <td style="text-align: center;">${order.paymentMethod === 'cod' ? 'COD' : 'Prepaid'}</td>
                             </tr>
                             `).join('') || ''}
                         </tbody>
                     </table>
                     
-                    <div class="mb-2" style="margin-top: 32px;">
+                    <div class="mb-2" style="margin-top: 32px; font-size: 1.1em;">
+                        <span class="text-bold">Total Amount: ₹${order.totalAmount?.toLocaleString() || '0'}</span>
+                    </div>
+                    <div class="mb-2">
                         Payment Due on Receipt: ${order.paymentMethod === 'cod' ? 'COD' : 'Prepaid'}
                     </div>
                 </div>
@@ -351,6 +355,7 @@ export default function ActiveOrdersPage() {
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Student Name</th>
                                 <th className="px-6 py-4 text-right text-sm font-semibold text-slate-900">Amount</th>
                                 <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Qty</th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Payment</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900" style={{ minWidth: '120px' }}>Status</th>
                                 <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Actions</th>
                             </tr>
@@ -490,6 +495,21 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
                 <span className="text-sm font-medium text-slate-900">
                     {order.items?.reduce((acc, item) => acc + (item.quantity || 1), 0) || order.itemCount || 0}
                 </span>
+            </td>
+
+            {/* Payment Status */}
+            <td className="px-6 py-4">
+                <div className="flex flex-col gap-1">
+                    <Badge variant={order.paymentMethod === 'cod' ? 'outline' : 'secondary'} className="w-fit text-[10px] uppercase">
+                        {order.paymentMethod || 'Prepaid'}
+                    </Badge>
+                    <p className={cn(
+                        "text-xs font-semibold",
+                        order.paymentStatus === 'paid' ? "text-emerald-600" : "text-amber-600"
+                    )}>
+                        {order.paymentStatus === 'paid' ? 'Paid' : (order.paymentMethod === 'cod' ? 'Pay on Delivery' : 'Pending')}
+                    </p>
+                </div>
             </td>
 
             {/* Status */}
