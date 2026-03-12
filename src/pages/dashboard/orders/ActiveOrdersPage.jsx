@@ -175,12 +175,12 @@ export default function ActiveOrdersPage() {
 
         const customerMessagesHtml = order.items?.map(item => {
             const msg = item.productSnapshot?.metadata?.customerMessage || item.metadata?.customerMessage;
-            if (msg && msg.type && msg.type !== 'none' && msg.text) {
+            if (msg && msg.type && msg.type !== 'none' && (msg.text || msg.imageUrl)) {
                 return `
                     <div style="margin-top: 16px; padding: 12px; border: 1px dashed #666; background-color: #fafafa; border-radius: 4px;">
                         <div style="font-weight: bold; text-transform: uppercase; font-size: 12px; color: #555; margin-bottom: 4px;">${msg.type}</div>
-                        <div style="font-size: 14px; margin-bottom: ${msg.imageUrl ? '8px' : '0'};">${msg.text}</div>
-                        ${msg.imageUrl ? `<img src="${msg.imageUrl}" style="max-width: 100%; max-height: 200px; border-radius: 4px;" />` : ''}
+                        <div class="customer-message-content" style="margin-bottom: ${msg.imageUrl ? '8px' : '0'};">${msg.text || ''}</div>
+                        ${msg.imageUrl ? `<img src="${msg.imageUrl}" style="max-width: 100%; max-height: 200px; border-radius: 4px; display: block;" />` : ''}
                     </div>
                 `;
             }
@@ -205,6 +205,12 @@ export default function ActiveOrdersPage() {
                 .mb-2 { margin-bottom: 8px; }
                 .mb-3 { margin-bottom: 12px; }
                 .mb-4 { margin-bottom: 16px; }
+                
+                .customer-message-content { font-size: 14px; }
+                .customer-message-content img { max-width: 100% !important; height: auto !important; max-height: 400px; object-fit: contain; border-radius: 4px; }
+                .customer-message-content table { width: 100%; border-collapse: collapse; margin-block: 8px; }
+                .customer-message-content th, .customer-message-content td { border: 1px solid #ccc; padding: 6px; }
+                .customer-message-content p { margin: 4px 0; }
             </style></head><body>
             <div class="label-box">
                 <div class="header-row">
