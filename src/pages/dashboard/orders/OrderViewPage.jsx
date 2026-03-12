@@ -257,6 +257,20 @@ export default function OrderViewPage() {
     const warehouseName = activeWarehouse?.name || "Warehouse Name";
     const qrData = `${order.items?.[0]?.id || ""} , ${order.id}`;
 
+    const customerMessagesHtml = order.items?.map(item => {
+      const msg = item.productSnapshot?.metadata?.customerMessage || item.metadata?.customerMessage;
+      if (msg && msg.type && msg.type !== 'none' && msg.text) {
+          return `
+              <div style="margin-top: 16px; padding: 12px; border: 1px dashed #666; background-color: #fafafa; border-radius: 4px;">
+                  <div style="font-weight: bold; text-transform: uppercase; font-size: 12px; color: #555; margin-bottom: 4px;">${msg.type}</div>
+                  <div style="font-size: 14px; margin-bottom: ${msg.imageUrl ? '8px' : '0'};">${msg.text}</div>
+                  ${msg.imageUrl ? `<img src="${msg.imageUrl}" style="max-width: 100%; max-height: 200px; border-radius: 4px;" />` : ''}
+              </div>
+          `;
+      }
+      return '';
+    }).filter(Boolean).join('');
+
     const labelContent = `
             <html><head><title>Label — ${shortenOrderId(order)}</title>
             <style>
@@ -328,6 +342,7 @@ export default function OrderViewPage() {
                     <div class="mb-2" style="margin-top: 32px;">
                         Payment Due on Receipt: ${order.paymentMethod === "cod" ? "COD" : "Prepaid"}
                     </div>
+                    ${customerMessagesHtml}
                 </div>
             </div>
             </body></html>`;
