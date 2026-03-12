@@ -259,6 +259,14 @@ export default function ProductDetailsForm({
   const [localCategory, setLocalCategory] = useState(category);
   const [localProductType, setLocalProductType] = useState(schoolProductType);
 
+  // ── Customer / Receipt Message ────────────────────────────────
+  const [customerMessage, setCustomerMessage] = useState({
+    type: "none",
+    text: "",
+    image: null,
+    imageUrl: "",
+  });
+
   // Auto-fill city on mount if available
   useEffect(() => {
     if (cityToUse && !formData.city) {
@@ -326,6 +334,16 @@ export default function ProductDetailsForm({
             // Populate Category Attributes Metadata
             if (p.metadata?.categoryAttributes) {
               setMetadata(p.metadata.categoryAttributes);
+            }
+
+            // Populate Customer Message
+            if (p.metadata?.customerMessage) {
+              setCustomerMessage({
+                type: p.metadata.customerMessage.type || "none",
+                text: p.metadata.customerMessage.text || "",
+                image: null,
+                imageUrl: p.metadata.customerMessage.imageUrl || "",
+              });
             }
 
             // Populate Highlights
@@ -879,6 +897,11 @@ export default function ProductDetailsForm({
       return;
     }
 
+    if (customerMessage.type !== "none" && !customerMessage.text.trim()) {
+      toast({ title: "Customer message text is required", variant: "destructive" });
+      return;
+    }
+
     // Build highlights object: { "Material": "Cotton", "Size": "Regular" }
     const highlightObj = {};
     highlights.forEach((h) => {
@@ -916,6 +939,18 @@ export default function ProductDetailsForm({
       return;
     }
 
+    setSubmitting(true);
+    let finalCustomerMessageImageUrl = customerMessage.imageUrl;
+    if (customerMessage.image && customerMessage.imageUrl && customerMessage.imageUrl.startsWith("blob:")) {
+      try {
+        const result = await productService.uploadImage(customerMessage.image);
+        finalCustomerMessageImageUrl = result.data?.url || result.url || "";
+      } catch (err) {
+        console.error("Customer message image upload failed:", err);
+        toast({ title: "Failed to upload customer message image", variant: "destructive" });
+      }
+    }
+
     const payload = {
       replaceVariants: false,
       replaceImages: false,
@@ -935,6 +970,11 @@ export default function ProductDetailsForm({
         metadata: {
           categoryAttributes: categoryAttrsObj,
           compare_price: formData.compareAtPrice,
+          customerMessage: {
+            type: customerMessage.type,
+            text: customerMessage.text,
+            imageUrl: finalCustomerMessageImageUrl
+          }
         },
         isActive: false,
       },
@@ -1197,6 +1237,80 @@ export default function ProductDetailsForm({
                 </p>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* ── Customer / Receipt Message ── */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Customer / Receipt Message</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+             <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Message Type</label>
+                <select
+                  value={customerMessage.type}
+                  onChange={(e) => setCustomerMessage(prev => ({...prev, type: e.target.value}))}
+                  className="flex h-11 w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm transition-all hover:border-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                >
+                  <option value="none">None</option>
+                  <option value="warning">Warning</option>
+                  <option value="suggestion">Suggestion</option>
+                  <option value="advertisement">Advertisement</option>
+                </select>
+             </div>
+             
+             {customerMessage.type !== "none" && (
+               <>
+                 <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Message Text <span className="text-red-500">*</span></label>
+                    <textarea
+                      value={customerMessage.text}
+                      onChange={(e) => setCustomerMessage(prev => ({...prev, text: e.target.value}))}
+                      className="flex w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm transition-all hover:border-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      rows="3"
+                      placeholder="Enter the message to display to the customer..."
+                    />
+                 </div>
+                 <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Image / Poster (Optional)</label>
+                    {customerMessage.imageUrl ? (
+                      <div className="relative w-32 h-32 group">
+                         <img 
+                           src={customerMessage.imageUrl} 
+                           alt="Customer Message" 
+                           className="w-full h-full object-cover rounded-lg border border-slate-200" 
+                         />
+                         <button 
+                           type="button"
+                           onClick={() => setCustomerMessage(prev => ({...prev, imageUrl: "", image: null}))} 
+                           className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-md transition-colors"
+                           title="Remove Image"
+                         >
+                           <X className="h-4 w-4" />
+                         </button>
+                      </div>
+                    ) : (
+                      <input
+                         type="file"
+                         accept="image/*"
+                         onChange={(e) => {
+                           if (e.target.files && e.target.files[0]) {
+                             const file = e.target.files[0];
+                             setCustomerMessage(prev => ({
+                               ...prev, 
+                               image: file, 
+                               imageUrl: URL.createObjectURL(file)
+                             }));
+                             e.target.value = ""; // Reset input
+                           }
+                         }}
+                         className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors cursor-pointer"
+                      />
+                    )}
+                 </div>
+               </>
+             )}
           </CardContent>
         </Card>
 
