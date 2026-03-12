@@ -266,6 +266,7 @@ export default function ProductDetailsForm({
     image: null,
     imageUrl: "",
   });
+  const [customMessageType, setCustomMessageType] = useState("");
 
   // Auto-fill city on mount if available
   useEffect(() => {
@@ -338,12 +339,20 @@ export default function ProductDetailsForm({
 
             // Populate Customer Message
             if (p.metadata?.customerMessage) {
+              const knownTypes = ['none', 'warning', 'suggestion', 'advertisement'];
+              const loadedType = p.metadata.customerMessage.type || "none";
+              const isOther = !knownTypes.includes(loadedType);
+
               setCustomerMessage({
-                type: p.metadata.customerMessage.type || "none",
+                type: isOther ? 'other' : loadedType,
                 text: p.metadata.customerMessage.text || "",
                 image: null,
                 imageUrl: p.metadata.customerMessage.imageUrl || "",
               });
+              
+              if (isOther) {
+                setCustomMessageType(loadedType);
+              }
             }
 
             // Populate Highlights
@@ -897,8 +906,8 @@ export default function ProductDetailsForm({
       return;
     }
 
-    if (customerMessage.type !== "none" && !customerMessage.text.trim()) {
-      toast({ title: "Customer message text is required", variant: "destructive" });
+    if (customerMessage.type === "other" && !customMessageType.trim()) {
+      toast({ title: "Please specify the custom message type", variant: "destructive" });
       return;
     }
 
@@ -909,7 +918,6 @@ export default function ProductDetailsForm({
         highlightObj[h.key.trim()] = h.value.trim();
       }
     });
-
     // Find highest discount variant for compare_price in metadata
     // let comparePriceMeta = parseFloat(formData.compareAtPrice) || null;
     // if (variants.length > 0) {
@@ -1257,18 +1265,30 @@ export default function ProductDetailsForm({
                   <option value="warning">Warning</option>
                   <option value="suggestion">Suggestion</option>
                   <option value="advertisement">Advertisement</option>
+                  <option value="other">Other (Custom)</option>
                 </select>
              </div>
+             
+             {customerMessage.type === "other" && (
+                <div>
+                   <label className="mb-1.5 block text-sm font-medium text-slate-700">Custom Message Type</label>
+                   <input
+                     type="text"
+                     value={customMessageType}
+                     onChange={(e) => setCustomMessageType(e.target.value)}
+                     placeholder="e.g. Special Offer, Notice"
+                     className="flex h-11 w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm transition-all hover:border-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                   />
+                </div>
+             )}
              
              {customerMessage.type !== "none" && (
                <>
                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Message Text <span className="text-red-500">*</span></label>
-                    <textarea
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Message Text (Optional)</label>
+                    <RichTextEditor
                       value={customerMessage.text}
-                      onChange={(e) => setCustomerMessage(prev => ({...prev, text: e.target.value}))}
-                      className="flex w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm transition-all hover:border-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      rows="3"
+                      onChange={(val) => setCustomerMessage(prev => ({...prev, text: val}))}
                       placeholder="Enter the message to display to the customer..."
                     />
                  </div>
