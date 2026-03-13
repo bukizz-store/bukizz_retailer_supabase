@@ -1295,7 +1295,7 @@ export default function ProductDetailsForm({
                     <label className="mb-1.5 block text-sm font-medium text-slate-700">Message Text (Optional)</label>
                     <RichTextEditor
                       value={customerMessage.text}
-                      onChange={(val) => setCustomerMessage(prev => ({...prev, text: val}))}
+                      onChange={(val) => {setCustomerMessage(prev => ({...prev, text: val}))}}
                       placeholder="Enter the message to display to the customer..."
                     />
                  </div>
