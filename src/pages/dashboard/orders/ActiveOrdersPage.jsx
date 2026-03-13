@@ -154,10 +154,7 @@ export default function ActiveOrdersPage() {
         if (result.success) fetchOrders(warehouseId);
     };
 
-    const handlePrintLabel = (orderId) => {
-        const order = orders.find((o) => o.id === orderId);
-        if (!order) return;
-
+    const getLabelHtmlContent = (order) => {
         const address = order.shippingAddress || {};
         const addressLines = [
             `Student: ${address.studentName}`,
@@ -187,31 +184,8 @@ export default function ActiveOrdersPage() {
             return '';
         }).filter(Boolean).join('');
 
-        const labelContent = `
-            <html><head><title>Label — ${shortenOrderId(order)}</title>
-            <style>
-                body { font-family: Arial, sans-serif; padding: 20px; display: flex; justify-content: center; }
-                .label-box { border: 2px solid #000; width: 100%; max-width: 550px; }
-                .header-row { display: flex; border-bottom: 2px solid #000; }
-                .header-left { flex: 1; padding: 16px; border-right: 2px solid #000; }
-                .header-right { flex: 1; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-                .logo-row { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
-                .body-section { padding: 16px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-                th, td { border: 1px solid #000; padding: 10px; text-align: left; }
-                th { background-color: #f9f9f9; text-align: center; }
-                .text-bold { font-weight: bold; }
-                .mb-1 { margin-bottom: 4px; }
-                .mb-2 { margin-bottom: 8px; }
-                .mb-3 { margin-bottom: 12px; }
-                .mb-4 { margin-bottom: 16px; }
-                
-                .customer-message-content { font-size: 14px; }
-                .customer-message-content img { max-width: 100% !important; height: auto !important; max-height: 400px; object-fit: contain; border-radius: 4px; }
-                .customer-message-content table { width: 100%; border-collapse: collapse; margin-block: 8px; }
-                .customer-message-content th, .customer-message-content td { border: 1px solid #ccc; padding: 6px; }
-                .customer-message-content p { margin: 4px 0; }
-            </style></head><body>
+        return `
+            <div class="label-container">
             <div class="label-box">
                 <div class="header-row">
                     <div class="header-left">
@@ -258,16 +232,66 @@ export default function ActiveOrdersPage() {
                     ${customerMessagesHtml}
                 </div>
             </div>
+            </div>
+        `;
+    };
+
+    const printLabels = (ordersToPrint) => {
+        if (!ordersToPrint || ordersToPrint.length === 0) return;
+        
+        const labelsHtml = ordersToPrint.map(getLabelHtmlContent).join('');
+        const title = ordersToPrint.length === 1 ? `Label — ${shortenOrderId(ordersToPrint[0])}` : 'Bulk Print Labels';
+        
+        const fullHtml = `
+            <html><head><title>${title}</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; margin: 0; background: #f0f0f0; }
+                .label-container { width: 100%; max-width: 550px; background: white; padding: 0; page-break-after: always; }
+                .label-container:last-child { page-break-after: auto; }
+                .label-box { border: 2px solid #000; width: 100%; box-sizing: border-box; }
+                .header-row { display: flex; border-bottom: 2px solid #000; }
+                .header-left { flex: 1; padding: 16px; border-right: 2px solid #000; }
+                .header-right { flex: 1; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+                .logo-row { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
+                .body-section { padding: 16px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+                th, td { border: 1px solid #000; padding: 10px; text-align: left; }
+                th { background-color: #f9f9f9; text-align: center; }
+                .text-bold { font-weight: bold; }
+                .mb-1 { margin-bottom: 4px; }
+                .mb-2 { margin-bottom: 8px; }
+                .mb-3 { margin-bottom: 12px; }
+                .mb-4 { margin-bottom: 16px; }
+                
+                .customer-message-content { font-size: 14px; }
+                .customer-message-content img { max-width: 100% !important; height: auto !important; max-height: 400px; object-fit: contain; border-radius: 4px; }
+                .customer-message-content table { width: 100%; border-collapse: collapse; margin-block: 8px; }
+                .customer-message-content th, .customer-message-content td { border: 1px solid #ccc; padding: 6px; }
+                .customer-message-content p { margin: 4px 0; }
+                
+                @media print {
+                    body { padding: 0; background: white; display: block; }
+                    .label-container { page-break-after: always; max-width: 100%; box-shadow: none; margin-bottom: 0; }
+                    .label-container:last-child { page-break-after: auto; }
+                }
+            </style></head><body>
+            ${labelsHtml}
             </body></html>`;
-        const printWindow = window.open('', '_blank', 'width=600,height=800');
+            
+        const printWindow = window.open('', '_blank', 'width=800,height=800');
         if (printWindow) {
-            printWindow.document.write(labelContent);
+            printWindow.document.write(fullHtml);
             printWindow.document.close();
             setTimeout(() => {
                 printWindow.focus();
                 printWindow.print();
             }, 500);
         }
+    };
+
+    const handlePrintLabel = (orderId) => {
+        const order = orders.find((o) => o.id === orderId);
+        if (order) printLabels([order]);
     };
 
     const handleBulkUpdateStatus = async () => {
@@ -285,7 +309,8 @@ export default function ActiveOrdersPage() {
     };
 
     const handleBulkPrintLabels = () => {
-        selectedOrders.forEach((id) => handlePrintLabel(id));
+        const ordersToPrint = selectedOrders.map((id) => orders.find((o) => o.id === id)).filter(Boolean);
+        printLabels(ordersToPrint);
     };
 
     const totalPages = Math.ceil(totalCount / limit);
@@ -483,6 +508,9 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
                             <p className="font-medium text-slate-900 line-clamp-2" title={item.title || item.productSnapshot?.name}>
                                 {item.schoolName ? `${item.title || item.productSnapshot?.name} - ${item.schoolName}` : (item.title || item.productSnapshot?.name)}
                             </p>
+                            {item.variant?.sku && (
+                                <p className="text-xs text-slate-500">SKU: {item.variant.sku}</p>
+                            )}
                             {(item.variantDetail || item.productSnapshot?.variantName) && (
                                 <p className="text-xs text-slate-500">{item.variantDetail || item.productSnapshot?.variantName}</p>
                             )}
