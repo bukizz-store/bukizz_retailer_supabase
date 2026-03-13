@@ -28,6 +28,7 @@ import OrdersLayout from "./layouts/OrdersLayout";
 import Overview from "./pages/dashboard/Overview";
 import GeneralStorePage from "./pages/dashboard/inventory/GeneralStorePage";
 import AddProductPage from "./pages/dashboard/inventory/AddProductPage";
+import AddAddonProductPage from "./pages/dashboard/inventory/AddAddonProductPage";
 import InventoryHealthPage from "./pages/dashboard/inventory/InventoryHealthPage";
 import MySchoolsPage from "./pages/dashboard/inventory/MySchoolsPage";
 import SchoolProductManagementPage from "./pages/dashboard/inventory/SchoolProductManagementPage";
@@ -107,6 +108,7 @@ export default function App() {
           <Route path="inventory/general" element={<GeneralStoreLayout />}>
             <Route index element={<GeneralStorePage />} />
             <Route path="add" element={<AddProductPage />} />
+            <Route path="add-addon" element={<AddAddonProductPage />} />
             <Route
               path="edit/:productId"
               element={<AddProductPage isEditMode={true} />}

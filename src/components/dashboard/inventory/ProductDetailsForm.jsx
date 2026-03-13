@@ -221,6 +221,7 @@ export default function ProductDetailsForm({
   prefilledCity = "",
   productId = null,
   isEditMode = false,
+  isAddon = false,
 }) {
   const isSchoolFlow = !!schoolId;
   const { activeWarehouse } = useWarehouse();
@@ -893,7 +894,7 @@ export default function ProductDetailsForm({
       });
       return;
     }
-    if (!localCategory) {
+    if (!isAddon && !localCategory) {
       toast({ title: "Category is required", variant: "destructive" });
       return;
     }
@@ -967,7 +968,7 @@ export default function ProductDetailsForm({
       productData: {
         title: formData.title,
         sku: formData.sku,
-        productType: isSchoolFlow ? localProductType : "general",
+        productType: isSchoolFlow ? localProductType : (isAddon ? "addon" : "general"),
         basePrice: parseFloat(formData.basePrice),
         compareAtPrice: parseFloat(formData.compareAtPrice) || null,
         shortDescription: formData.shortDescription,
@@ -1026,7 +1027,7 @@ export default function ProductDetailsForm({
       brandData: selectedBrand
         ? { type: "existing", brandId: selectedBrand.id }
         : null,
-      categories: [{ id: localCategory.id }],
+      categories: (localCategory && localCategory.id) ? [{ id: localCategory.id }] : [],
       schoolData: isSchoolFlow
         ? {
             schoolId: schoolId,
@@ -1042,6 +1043,12 @@ export default function ProductDetailsForm({
         await productService.updateComprehensiveProduct(productId, payload);
         toast({
           title: "Product updated successfully",
+          variant: "success",
+        });
+      } else if (isAddon) {
+        await productService.createAddonProduct(payload);
+        toast({
+          title: "Addon Product created successfully",
           variant: "success",
         });
       } else {
@@ -1615,7 +1622,19 @@ export default function ProductDetailsForm({
 
             {/* Variants Table */}
             {variants.length > 0 && (
-              <div className="border border-slate-200 rounded-lg overflow-hidden mt-4">
+              <div className="mt-4">
+                {isEditMode && (
+                  <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 mb-4 flex items-start gap-3">
+                    <div className="w-5 h-5 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 flex-shrink-0 mt-0.5 mt-0">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-blue-900">Looking for Add-ons?</h4>
+                      <p className="text-xs text-blue-800/80 mt-0.5">Add-ons are managed directly from the <strong className="font-semibold text-blue-900">Product Detail View Page</strong>, not inside the editing form. This ensures new variants are fully saved to the database before attaching complex cross-sells to them. Save your changes here first, then head to the view page to link Add-ons.</p>
+                    </div>
+                  </div>
+                )}
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
@@ -1723,6 +1742,7 @@ export default function ProductDetailsForm({
                     </tbody>
                   </table>
                 </div>
+              </div>
               </div>
             )}
           </CardContent>

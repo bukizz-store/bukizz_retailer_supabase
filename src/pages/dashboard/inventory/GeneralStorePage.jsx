@@ -71,7 +71,7 @@ export default function GeneralStorePage() {
         search: debouncedSearch,
         categoryId: filters.category === "all" ? "" : filters.category,
         status: filters.status,
-        productType: "general",
+        productType: "all", // allow seeing addons in admin panel
       });
 
       console.log(response);

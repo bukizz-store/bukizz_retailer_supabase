@@ -36,6 +36,15 @@ export default function ProductDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Add-on Manager modal
+  const [showAddonModal, setShowAddonModal] = useState(false);
+  const [selectedVariantForAddon, setSelectedVariantForAddon] = useState(null);
+  const [addonSearch, setAddonSearch] = useState("");
+  const [addonSearchResults, setAddonSearchResults] = useState([]);
+  const [isSearchingAddons, setIsSearchingAddons] = useState(false);
+  const [isProcessingAddon, setIsProcessingAddon] = useState(false);
+  const [expandedAddonProduct, setExpandedAddonProduct] = useState(null);
+
   useEffect(() => {
     const fetchProduct = async () => {
       setLoading(true);
@@ -81,6 +90,99 @@ export default function ProductDetailPage() {
       });
       setIsDeleting(false);
       setShowDeleteModal(false);
+    }
+  };
+
+  const handleOpenAddonModal = (variant) => {
+    setSelectedVariantForAddon(variant);
+    setShowAddonModal(true);
+    setAddonSearch("");
+    setAddonSearchResults([]);
+    setExpandedAddonProduct(null);
+  };
+
+  const handleSearchAddons = async (e) => {
+    e.preventDefault();
+    if (!addonSearch.trim()) return;
+    setIsSearchingAddons(true);
+    try {
+      const response = await productService.getProductsByWarehouseId({
+        search: addonSearch,
+        limit: 10,
+        productType: "all", // allow addons to show up
+      });
+      console.log('addon search response:', response);
+      let items = response?.data?.data || response?.data?.products || response?.data || response?.products || response || [];
+      if (!Array.isArray(items)) {
+        if (items && Array.isArray(items.products)) {
+          items = items.products;
+        } else {
+          items = Object.values(items || {}).find(Array.isArray) || [];
+        }
+      }
+      setAddonSearchResults(items);
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Failed to search", variant: "destructive" });
+    } finally {
+      setIsSearchingAddons(false);
+    }
+  };
+
+  const handleAddAddon = async (addonProductId, addonVariantId) => {
+    if (!selectedVariantForAddon || !product) return;
+    setIsProcessingAddon(true);
+    try {
+      const response = await productService.addVariantAddon(
+        product.id,
+        selectedVariantForAddon.id, 
+        addonProductId, 
+        addonVariantId
+      );
+      toast({ title: "Add-on attached successfully", variant: "default" });
+      
+      const newAddon = response.data || response;
+      
+      // Update local state
+      const updatedProduct = { ...product };
+      const vIndex = updatedProduct.variants.findIndex(v => v.id === selectedVariantForAddon.id);
+      if (vIndex > -1) {
+        if (!updatedProduct.variants[vIndex].available_addons) {
+          updatedProduct.variants[vIndex].available_addons = [];
+        }
+        updatedProduct.variants[vIndex].available_addons.push(newAddon);
+        setProduct(updatedProduct);
+        setSelectedVariantForAddon(updatedProduct.variants[vIndex]);
+      }
+    } catch (error) {
+       console.error(error);
+       toast({ title: "Failed to add add-on", description: error.response?.data?.error, variant: "destructive" });
+    } finally {
+      setIsProcessingAddon(false);
+      setExpandedAddonProduct(null);
+    }
+  };
+
+  const handleRemoveAddon = async (addonId) => {
+    if (!selectedVariantForAddon || !product) return;
+    setIsProcessingAddon(true);
+    try {
+      await productService.removeVariantAddon(product.id, selectedVariantForAddon.id, addonId);
+      toast({ title: "Add-on removed successfully", variant: "default" });
+      
+      // Update local state
+      const updatedProduct = { ...product };
+      const vIndex = updatedProduct.variants.findIndex(v => v.id === selectedVariantForAddon.id);
+      if (vIndex > -1 && updatedProduct.variants[vIndex].available_addons) {
+        updatedProduct.variants[vIndex].available_addons = updatedProduct.variants[vIndex].available_addons.filter(a => a.id !== addonId);
+        setProduct(updatedProduct);
+        setSelectedVariantForAddon(updatedProduct.variants[vIndex]);
+      }
+    } catch (error) {
+       console.error(error);
+       toast({ title: "Failed to remove add-on", variant: "destructive" });
+    } finally {
+      setIsProcessingAddon(false);
     }
   };
 
@@ -458,6 +560,7 @@ export default function ProductDetailPage() {
                   <th className="py-3 px-4">Price</th>
                   <th className="py-3 px-4">Compare</th>
                   <th className="py-3 px-4">Stock</th>
+                  <th className="py-3 px-4">Add-ons</th>
                   <th className="py-3 px-4">Status</th>
                 </tr>
               </thead>
@@ -517,6 +620,16 @@ export default function ProductDetailPage() {
                       </td>
                       <td className="py-3 px-4 font-medium">{stock}</td>
                       <td className="py-3 px-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs font-medium text-blue-600 border-blue-200 hover:bg-blue-50"
+                          onClick={() => handleOpenAddonModal(variant)}
+                        >
+                          {variant.available_addons?.length || 0} Add-{variant.available_addons?.length === 1 ? 'on' : 'ons'}
+                        </Button>
+                      </td>
+                      <td className="py-3 px-4">
                         <Badge variant={badge.variant} dot>
                           {badge.label}
                         </Badge>
@@ -526,6 +639,133 @@ export default function ProductDetailPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add-on Manager Modal ── */}
+      {showAddonModal && selectedVariantForAddon && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl flex flex-col w-full max-w-2xl max-h-[90vh] shadow-xl animate-in fade-in-0 zoom-in-95 duration-200">
+            <div className="flex justify-between flex-shrink-0 items-center p-6 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">
+                  Manage Add-ons
+                </h3>
+                <p className="text-sm text-slate-500">
+                  For variant SKU: {selectedVariantForAddon.sku || 'N/A'}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAddonModal(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-6">
+              {/* Existing Add-ons */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800 mb-3">Current Add-ons</h4>
+                {(!selectedVariantForAddon.available_addons || selectedVariantForAddon.available_addons.length === 0) ? (
+                  <div className="text-sm text-slate-500 italic p-4 bg-slate-50 rounded-lg text-center">
+                    No add-ons associated with this variant.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedVariantForAddon.available_addons.map((addon) => (
+                      <div key={addon.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-slate-800">
+                            Product ID: {addon.addon_product_id}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            Variant ID: {addon.addon_variant_id}
+                          </span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isProcessingAddon}
+                          onClick={() => handleRemoveAddon(addon.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                        >
+                          {isProcessingAddon ? <Loader2 size={14} className="animate-spin" /> : "Remove"}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-slate-100 my-2"></div>
+
+              {/* Add New Add-on */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800 mb-3">Search & Attach New Add-on</h4>
+                <form onSubmit={handleSearchAddons} className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    value={addonSearch}
+                    onChange={(e) => setAddonSearch(e.target.value)}
+                    placeholder="Search products by title or SKU..."
+                    className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <Button type="submit" disabled={isSearchingAddons || !addonSearch.trim()}>
+                    {isSearchingAddons ? <Loader2 size={16} className="animate-spin mr-2" /> : "Search"}
+                  </Button>
+                </form>
+
+                <div className="space-y-3">
+                  {addonSearchResults?.map((searchResultProduct) => (
+                    <div key={searchResultProduct.id} className="border border-slate-200 rounded-lg overflow-hidden">
+                      <div 
+                        className="flex items-center justify-between p-3 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors"
+                        onClick={() => setExpandedAddonProduct(expandedAddonProduct === searchResultProduct.id ? null : searchResultProduct.id)}
+                      >
+                        <div className="flex items-center gap-3">
+                          {searchResultProduct.mainImage && (
+                            <img src={searchResultProduct.mainImage} alt="" className="w-10 h-10 rounded object-cover border border-slate-200" />
+                          )}
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-slate-900">{searchResultProduct.title}</span>
+                            <span className="text-xs text-slate-500 truncate max-w-[200px]">{searchResultProduct.short_description || "No description"}</span>
+                          </div>
+                        </div>
+                        <ChevronRight size={16} className={`text-slate-400 transition-transform ${expandedAddonProduct === searchResultProduct.id ? "rotate-90" : ""}`} />
+                      </div>
+                      
+                      {expandedAddonProduct === searchResultProduct.id && (
+                        <div className="p-3 bg-white border-t border-slate-200 space-y-2">
+                          <p className="text-xs font-semibold text-slate-600 mb-2 uppercase">Select a specific variant:</p>
+                          {searchResultProduct.variants?.map(v => (
+                            <div key={v.id} className="flex items-center justify-between p-2 rounded-md hover:bg-slate-50 transition-colors">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">SKU: {v.sku || 'N/A'}</span>
+                                <span className="text-xs text-slate-500">Stock: {v.stock} | Price: ₹{v.price}</span>
+                              </div>
+                              <Button
+                                size="sm"
+                                disabled={isProcessingAddon || selectedVariantForAddon.available_addons?.some(a => a.addon_variant_id === v.id)}
+                                onClick={() => handleAddAddon(searchResultProduct.id, v.id)}
+                                className={selectedVariantForAddon.available_addons?.some(a => a.addon_variant_id === v.id) ? "bg-slate-100 text-slate-400" : "bg-blue-600 hover:bg-blue-700 text-white"}
+                              >
+                                {isProcessingAddon ? <Loader2 size={14} className="animate-spin" /> : 
+                                 selectedVariantForAddon.available_addons?.some(a => a.addon_variant_id === v.id) ? "Attached" : "Attach"}
+                              </Button>
+                            </div>
+                          ))}
+                          {(!searchResultProduct.variants || searchResultProduct.variants.length === 0) && (
+                            <p className="text-sm text-slate-500 italic p-2">No variants available for this product.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
