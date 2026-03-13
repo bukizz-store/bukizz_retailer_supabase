@@ -284,6 +284,9 @@ function AllOrderRow({ order, onViewOrder }) {
                             <p className="font-medium text-slate-900 line-clamp-2" title={item.title || item.productSnapshot?.name}>
                                 {item.schoolName ? `${item.title || item.productSnapshot?.name} - ${item.schoolName}` : (item.title || item.productSnapshot?.name)}
                             </p>
+                            {item.variant?.sku && (
+                                <p className="text-xs text-slate-500">SKU: {item.variant.sku}</p>
+                            )}
                             {(item.variantDetail || item.productSnapshot?.variantName) && (
                                 <p className="text-xs text-slate-500">{item.variantDetail || item.productSnapshot?.variantName}</p>
                             )}

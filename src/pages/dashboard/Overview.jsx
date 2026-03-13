@@ -239,12 +239,21 @@ export default function Overview() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-slate-900">
                           {order.items?.length > 0
-                            ? order.items.map(i => i.schoolName ? `${i.title} - ${i.schoolName}` : i.title).join(', ')
-                            : (order.orderNumber || order.id)}
+                            ? order.items
+                                .map((i) =>
+                                  i.schoolName
+                                    ? `${i.title} - ${i.schoolName}`
+                                    : i.title,
+                                )
+                                .join(", ")
+                            : order.orderNumber || order.id}
                         </p>
                         <div className="flex items-center gap-2 text-xs text-slate-500">
                           <span>
-                            ₹{parseFloat(order.items?.[0].price || 0).toLocaleString()}
+                            ₹
+                            {parseFloat(
+                              order.items?.[0].price || 0,
+                            ).toLocaleString()}
                           </span>
                           <span>·</span>
                           <span>
@@ -254,14 +263,16 @@ export default function Overview() {
                         </div>
                       </div>
                       <Badge
-                        variant={statusBadgeVariant[order.status] || order.status}
+                        variant={
+                          statusBadgeVariant[order.items[0].status] || order.status
+                        }
                         dot
                         className="flex-shrink-0 text-xs"
                       >
-                        {statusLabelMap[order.status] || order.status}
+                        {statusLabelMap[order.items[0].status] || order.status}
                       </Badge>
                     </Link>
-                  )
+                  );
                 })
               ) : (
                 <div className="py-8 text-center text-sm text-slate-500">
