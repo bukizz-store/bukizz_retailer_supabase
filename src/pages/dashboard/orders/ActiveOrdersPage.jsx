@@ -403,7 +403,7 @@ export default function ActiveOrdersPage() {
                                 <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Qty</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Payment</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900" style={{ minWidth: '120px' }}>Status</th>
-                                <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Actions</th>
+                                <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900 sticky right-0 z-10 bg-slate-50 shadow-[-1px_0_0_#e2e8f0]">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -494,7 +494,7 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
     };
 
     return (
-        <tr className={cn("transition-colors hover:bg-slate-50 cursor-pointer", isSelected && "bg-blue-50/50")}
+        <tr className={cn("group transition-colors hover:bg-slate-50 cursor-pointer", isSelected && "bg-blue-50")}
             onClick={handleRowClick}>
             <td className="px-6 py-4">
                 <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="h-4 w-4 rounded border-slate-300" />
@@ -569,7 +569,10 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
             </td>
 
             {/* Actions: Print Label + Confirm */}
-            <td className="px-6 py-4">
+            <td className={cn(
+                "px-6 py-4 sticky right-0 z-10 shadow-[-1px_0_0_#e2e8f0]",
+                isSelected ? "bg-blue-50" : "bg-white group-hover:bg-slate-50"
+            )}>
                 <div className="flex items-center justify-center gap-2">
                     <Button variant="outline" size="sm" onClick={onPrintLabel} title="Print shipping label"
                         className="text-slate-600 hover:text-slate-900">
