@@ -56,6 +56,11 @@ const navItems = [
         icon: PlusCircle,
       },
       {
+        label: "Add Addon Product",
+        href: "/dashboard/inventory/general/add-addon",
+        icon: PlusCircle,
+      },
+      {
         label: "Track Approvals",
         href: "/dashboard/inventory/general/approvals",
         icon: CheckCircle2,

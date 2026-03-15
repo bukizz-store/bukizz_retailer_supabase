@@ -72,7 +72,7 @@ const statusFlow = [
 
 /**
  * Derive the effective order status from the items array.
- * The status lives at `order.items[].status`, not `order.status`.
+ * The status lives at `groupedItems[].status`, not `order.status`.
  * Uses the least-progressed item status as the bottleneck.
  */
 const STATUS_PRIORITY = [
@@ -86,7 +86,7 @@ const STATUS_PRIORITY = [
 ];
 
 function getOrderStatus(order) {
-  const items = order.items || [];
+  const items = order?.items || [];
   if (items.length === 0) return order.status || "initialized";
   let minIndex = STATUS_PRIORITY.length;
   for (const item of items) {
@@ -218,7 +218,7 @@ export default function OrderViewPage() {
 
     setIsUpdating(true);
     try {
-      await orderService.updateOrderItemStatus(order.id, order.items[0].id, {
+      await orderService.updateOrderItemStatus(order.id, order.items?.[0]?.id, {
         status: nextStatus,
         note: note,
       });
@@ -239,6 +239,24 @@ export default function OrderViewPage() {
   // ── Print label ──
   const handlePrintLabel = () => {
     if (!order) return;
+    
+    // Group items for print
+    let groupedItems = order.items || [];
+    const pItems = groupedItems.filter(i => !i.parentItemId);
+    const cItems = groupedItems.filter(i => i.parentItemId);
+    
+    groupedItems = [];
+    pItems.forEach(parent => {
+      groupedItems.push(parent);
+      cItems.filter(child => child.parentItemId === parent.id).forEach(child => {
+        child.isAddon = true;
+        groupedItems.push(child);
+      });
+    });
+    cItems.forEach(child => {
+      if (!groupedItems.find(i => i.id === child.id)) groupedItems.push(child);
+    });
+
     const address = order.shippingAddress || {};
     const addressLines = [
       `Student: ${address.studentName || "—"}`,
@@ -255,9 +273,9 @@ export default function OrderViewPage() {
     const retailerName =
       authUser?.fullName || authUser?.name || "Retailer Name";
     const warehouseName = activeWarehouse?.name || "Warehouse Name";
-    const qrData = `${order.items?.[0]?.id || ""} , ${order.id}`;
+    const qrData = `${groupedItems?.[0]?.id || ""} , ${order.id}`;
 
-    const customerMessagesHtml = order.items?.map(item => {
+    const customerMessagesHtml = groupedItems?.map(item => {
       const msg = item.productSnapshot?.metadata?.customerMessage || item.metadata?.customerMessage;
       if (msg && msg.type && msg.type !== 'none' && (msg.text || msg.imageUrl)) {
           return `
@@ -330,7 +348,7 @@ export default function OrderViewPage() {
                         </thead>
                         <tbody>
                             ${
-                              order.items
+                              groupedItems
                                 ?.map(
                                   (item) => `
                             <tr>
@@ -402,7 +420,30 @@ export default function OrderViewPage() {
   const shippingAddr = order.shippingAddress || {};
   const billingAddr = order.billingAddress || {};
   const summary = order.metadata?.orderSummary || {};
-  const items = order.items || [];
+  
+  // Group items by parent
+  let items = order.items || [];
+  const parentItems = items.filter(i => !i.parentItemId);
+  const childItems = items.filter(i => i.parentItemId);
+
+  // Reconstruct items array showing children right under their parents
+  items = [];
+  parentItems.forEach(parent => {
+    items.push(parent);
+    const children = childItems.filter(child => child.parentItemId === parent.id);
+    children.forEach(child => {
+      child.isAddon = true; // flag for rendering
+      items.push(child);
+    });
+  });
+
+  // Any orphaned child items (shouldn't happen, but just in case)
+  childItems.forEach(child => {
+    if (!items.find(i => i.id === child.id)) {
+      items.push(child);
+    }
+  });
+
   const currentStepIndex = statusFlow.indexOf(status);
 
   return (
@@ -552,8 +593,15 @@ export default function OrderViewPage() {
                   return (
                     <div
                       key={item.id}
-                      className="flex gap-4 py-4 first:pt-0 last:pb-0"
+                      className={cn(
+                        "flex gap-4 py-4 first:pt-0 last:pb-0 relative",
+                        item.isAddon && "ml-8 pl-4 border-l-2 border-indigo-100 bg-indigo-50/50 rounded-r-lg"
+                      )}
                     >
+                      {item.isAddon && (
+                        <div className="absolute -left-4 top-1/2 -mt-px w-4 h-px bg-indigo-100" />
+                      )}
+                      
                       {/* Product image */}
                       <div
                         className={cn(
@@ -583,9 +631,16 @@ export default function OrderViewPage() {
 
                       {/* Product info */}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 truncate">
-                          {item.title || snapshot.title || "Product"}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-slate-900 truncate">
+                            {item.title || snapshot.title || "Product"}
+                          </p>
+                          {item.isAddon && (
+                            <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 text-[10px] h-5 px-1.5">
+                              Add-on
+                            </Badge>
+                          )}
+                        </div>
 
                         {/* Variant options (e.g. Color: Red, Size: M) */}
                         {item.variant?.options?.length > 0 && (

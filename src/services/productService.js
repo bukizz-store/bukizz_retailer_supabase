@@ -79,6 +79,14 @@ export const productService = {
     return response.data;
   },
 
+  createAddonProduct: async (productData) => {
+    const response = await apiClient.post(
+      "/products/addon/comprehensive",
+      productData,
+    );
+    return response.data;
+  },
+
   updateComprehensiveProduct: async (id, productData) => {
     const response = await apiClient.put(
       `/products/${id}/comprehensive`,
@@ -104,6 +112,20 @@ export const productService = {
 
   deleteProduct: async (id) => {
     const response = await apiClient.delete(`/products/${id}`);
+    return response.data;
+  },
+
+  addVariantAddon: async (productId, variantId, addonProductId, addonVariantId, position = 0) => {
+    const response = await apiClient.post(`/products/${productId}/variants/${variantId}/addons`, {
+      addon_product_id: addonProductId,
+      addon_variant_id: addonVariantId,
+      position
+    });
+    return response.data;
+  },
+
+  removeVariantAddon: async (productId, variantId, addonId) => {
+    const response = await apiClient.delete(`/products/${productId}/variants/${variantId}/addons/${addonId}`);
     return response.data;
   },
 
