@@ -15,7 +15,7 @@ const useOrderStore = create((set, get) => ({
 
   // ── Filters & Pagination ────────────────────────────────────
   page: 1,
-  limit: 10,
+  limit: 50,
   statusFilter: "all",
   searchQuery: "",
 
