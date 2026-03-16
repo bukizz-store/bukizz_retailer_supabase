@@ -145,7 +145,7 @@ export default function SchoolProductManagementPage() {
 
   // Client-side filtering of products (all products come from the single API call)
   const filteredProducts = useMemo(() => {
-    let products = schoolProducts;
+    let products = schoolProducts.filter((p) => p.is_active);
 
     // First, restrict to only product types the retailer is allowed for this school
     if (allowedTypes) {

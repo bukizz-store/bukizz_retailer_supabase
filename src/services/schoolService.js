@@ -21,8 +21,8 @@ export const schoolService = {
    * GET /api/v1/schools/:id
    * Fetch a single school by ID.
    */
-  getSchoolById: async (id) => {
-    const response = await apiClient.get(`/schools/${id}`);
+  getSchoolById: async (id, params = {}) => {
+    const response = await apiClient.get(`/schools/${id}`, { params });
     return response.data?.data || response.data;
   },
 

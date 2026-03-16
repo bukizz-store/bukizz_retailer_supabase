@@ -1623,22 +1623,22 @@ export default function ProductDetailsForm({
                         <th className="px-4 py-3 text-left font-medium">
                           Variant
                         </th>
-                        <th className="px-4 py-3 text-left font-medium w-32">
+                        <th className="px-4 py-3 text-left font-medium w-48">
                           SKU
                         </th>
-                        <th className="px-4 py-3 text-left font-medium w-24">
+                        <th className="px-4 py-3 text-left font-medium w-32">
                           Compare At (₹)
                         </th>
-                        <th className="px-4 py-3 text-left font-medium w-24">
+                        <th className="px-4 py-3 text-left font-medium w-28">
                           % Disc
                         </th>
-                        <th className="px-4 py-3 text-left font-medium w-24">
+                        <th className="px-4 py-3 text-left font-medium w-32">
                           Price (₹)
                         </th>
-                        <th className="px-4 py-3 text-left font-medium w-20">
+                        <th className="px-4 py-3 text-left font-medium w-24">
                           Stock
                         </th>
-                        <th className="px-4 py-3 text-left font-medium w-20">
+                        <th className="px-4 py-3 text-left font-medium w-24">
                           Weight
                         </th>
                       </tr>
@@ -1652,7 +1652,7 @@ export default function ProductDetailsForm({
                           <td className="px-4 py-2.5">
                             <input
                               type="text"
-                              className="h-8 w-full text-sm rounded border border-slate-200 px-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                              className="h-8 w-full text-sm rounded border border-slate-200 px-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                               value={v.sku}
                               onChange={(e) =>
                                 updateVariantField(idx, "sku", e.target.value)
@@ -1662,7 +1662,7 @@ export default function ProductDetailsForm({
                           <td className="px-4 py-2.5">
                             <input
                               type="number"
-                              className="h-8 w-full text-sm rounded border border-slate-200 px-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                              className="h-8 w-full text-sm rounded border border-slate-200 px-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                               value={v.compareAtPrice}
                               onChange={(e) =>
                                 updateVariantCompareAt(idx, e.target.value)
@@ -1672,7 +1672,7 @@ export default function ProductDetailsForm({
                           <td className="px-4 py-2.5">
                             <input
                               type="number"
-                              className="h-8 w-full text-sm rounded border border-slate-200 px-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                              className="h-8 w-full text-sm rounded border border-slate-200 px-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                               value={v.discount}
                               min="0"
                               max="100"
@@ -1684,7 +1684,7 @@ export default function ProductDetailsForm({
                           <td className="px-4 py-2.5">
                             <input
                               type="number"
-                              className="h-8 w-full text-sm rounded border border-slate-200 px-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                              className="h-8 w-full text-sm rounded border border-slate-200 px-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                               value={v.price}
                               onChange={(e) =>
                                 updateVariantPrice(idx, e.target.value)
@@ -1694,7 +1694,7 @@ export default function ProductDetailsForm({
                           <td className="px-4 py-2.5">
                             <input
                               type="number"
-                              className="h-8 w-full text-sm rounded border border-slate-200 px-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                              className="h-8 w-full text-sm rounded border border-slate-200 px-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                               value={v.stock}
                               min="0"
                               onChange={(e) =>
@@ -1705,7 +1705,7 @@ export default function ProductDetailsForm({
                           <td className="px-4 py-2.5">
                             <input
                               type="number"
-                              className="h-8 w-full text-sm rounded border border-slate-200 px-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                              className="h-8 w-full text-sm rounded border border-slate-200 px-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                               value={v.weight}
                               min="0"
                               step="0.01"
