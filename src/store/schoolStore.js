@@ -254,7 +254,9 @@ const useSchoolStore = create((set, get) => ({
   fetchAllSchoolData: async (schoolId) => {
     set({ isLoadingSchoolDetail: true, schoolDetailError: null });
     try {
-      const data = await schoolService.getSchoolById(schoolId);
+      const data = await schoolService.getSchoolById(schoolId, {
+        includeInactive: true,
+      });
       // API returns { school: { ...info, products: [], analytics: {}, partnerships: [] } }
       const school = data?.school || data;
       const products = school?.products || [];
