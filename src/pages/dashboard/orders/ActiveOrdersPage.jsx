@@ -134,15 +134,17 @@ export default function ActiveOrdersPage() {
         ? activeOrders
         : orders.filter((o) => getOrderStatus(o) === statusFilter);
 
-    const toggleOrderSelection = (orderId) => {
+    const getRowKey = (order) => order.items?.[0]?.id || order.id;
+
+    const toggleOrderSelection = (itemId) => {
         setSelectedOrders((prev) =>
-            prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
+            prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
         );
     };
 
     const toggleSelectAll = () => {
         setSelectedOrders(
-            selectedOrders.length === displayedOrders.length ? [] : displayedOrders.map((o) => o.id)
+            selectedOrders.length === displayedOrders.length ? [] : displayedOrders.map((o) => getRowKey(o))
         );
     };
 
@@ -205,7 +207,7 @@ export default function ActiveOrdersPage() {
                 <div class="body-section">
                     <div class="text-bold mb-1">Shipping Address:</div>
                     <div class="mb-4">${addressLines}<br/></div>
-                    
+                    <div class="text-bold mb-3">Dispatch ID: ${order.items?.[0]?.dispatchId || '—'}</div>
                     <div class="text-bold mb-3">Order Number: ${shortenOrderId(order)}</div>
                     <div class="text-bold mb-3">Order ID: ${order.id}</div>
                     
@@ -293,19 +295,19 @@ export default function ActiveOrdersPage() {
         }
     };
 
-    const handlePrintLabel = (orderId) => {
-        const order = orders.find((o) => o.id === orderId);
+    const handlePrintLabel = (itemId) => {
+        const order = orders.find((o) => (o.items?.[0]?.id || o.id) === itemId);
         if (order) printLabels([order]);
     };
 
     const handleBulkUpdateStatus = async () => {
-        for (const orderId of selectedOrders) {
-            const order = orders.find((o) => o.id === orderId);
+        for (const itemId of selectedOrders) {
+            const order = orders.find((o) => (o.items?.[0]?.id || o.id) === itemId);
             const status = getOrderStatus(order);
             if (order && order.items?.length > 0 && (status === 'initialized' || status === 'processed')) {
                 const nextStatus = status === 'initialized' ? 'processed' : 'shipped';
                 const note = status === 'initialized' ? 'Bulk confirmed by retailer' : 'Bulk shipped by retailer';
-                await updateOrderItemStatus(orderId, order.items[0].id, nextStatus, note);
+                await updateOrderItemStatus(order.id, order.items[0].id, nextStatus, note);
             }
         }
         setSelectedOrders([]);
@@ -313,7 +315,7 @@ export default function ActiveOrdersPage() {
     };
 
     const handleBulkPrintLabels = () => {
-        const ordersToPrint = selectedOrders.map((id) => orders.find((o) => o.id === id)).filter(Boolean);
+        const ordersToPrint = selectedOrders.map((itemId) => orders.find((o) => (o.items?.[0]?.id || o.id) === itemId)).filter(Boolean);
         printLabels(ordersToPrint);
     };
 
@@ -425,18 +427,21 @@ export default function ActiveOrdersPage() {
                                     </td>
                                 </tr>
                             ) : (
-                                displayedOrders.map((order) => (
+                                displayedOrders.map((order) => {
+                                    const rowKey = getRowKey(order);
+                                    return (
                                     <OrderRow
-                                        key={order.id}
+                                        key={rowKey}
                                         order={order}
-                                        isSelected={selectedOrders.includes(order.id)}
-                                        onToggleSelect={() => toggleOrderSelection(order.id)}
+                                        isSelected={selectedOrders.includes(rowKey)}
+                                        onToggleSelect={() => toggleOrderSelection(rowKey)}
                                         onConfirm={() => handleUpdateStatus(order.id, order.items?.[0]?.id, status)}
-                                        onPrintLabel={() => handlePrintLabel(order.id)}
+                                        onPrintLabel={() => handlePrintLabel(rowKey)}
                                         onViewOrder={() => navigate(`/dashboard/orders/${order.items?.[0]?.id}`)}
                                         isUpdating={isUpdatingStatus}
                                     />
-                                ))
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
