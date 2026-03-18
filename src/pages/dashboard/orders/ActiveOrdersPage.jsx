@@ -201,6 +201,7 @@ export default function ActiveOrdersPage() {
                         <div>${retailerName} ,<br/>${warehouseName}</div>
                     </div>
                     <div class="header-right">
+                        <div style="font-size: 1.8em; font-weight: bold; margin-bottom: 8px;">${order.items?.[0]?.dispatchId || "—"}</div>
                         <div class="mb-2">QR</div>
                         <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrData)}" alt="QR Code" style="width: 120px; height: 120px; margin-bottom: 8px;"/>
                     </div>
@@ -208,7 +209,6 @@ export default function ActiveOrdersPage() {
                 <div class="body-section">
                     <div class="text-bold mb-1">Shipping Address:</div>
                     <div class="mb-4">${addressLines}<br/></div>
-                    <div class="text-bold mb-3">Dispatch ID: ${order.items?.[0]?.dispatchId || "—"}</div>
                     <div class="text-bold mb-3">Order Number: ${shortenOrderId(order)}</div>
                     <div class="text-bold mb-3">Order ID: ${order.id}</div>
                     
@@ -227,7 +227,7 @@ export default function ActiveOrdersPage() {
                                   (item) => `
                             <tr>
                                 <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ""}</td>
-                                <td style="text-align: center;">${order.paymentMethod === "cod" ? "COD" : "Prepaid"}</td>
+                                <td style="text-align: center;">${order.paymentStatus === 'paid' ? 'Prepaid' : (order.paymentMethod === "cod" ? "COD" : "Prepaid")}</td>
                             </tr>
                             `,
                                 )
@@ -237,10 +237,10 @@ export default function ActiveOrdersPage() {
                     </table>
                     
                     <div class="mb-2" style="margin-top: 32px; font-size: 1.1em;">
-                        <span class="text-bold">Total Amount: ₹${order.items?.[0]?.totalPrice?.toLocaleString() || "0"}</span>
+                        <span class="text-bold">Total Amount: ₹${((order.items?.[0]?.totalPrice || 0) + (order.items?.[0]?.deliveryFee || order.items?.[0]?.delivery_fee || 0) + (order.items?.[0]?.platformFee || order.items?.[0]?.platform_fee || 0)).toLocaleString()}</span>
                     </div>
                     <div class="mb-2">
-                        Payment Due on Receipt: ${order.paymentMethod === "cod" ? "COD" : "Prepaid"}
+                        Payment Due on Receipt: ${order.paymentStatus === 'paid' ? 'Prepaid' : (order.paymentMethod === "cod" ? "COD" : "Prepaid")}
                     </div>
                     ${customerMessagesHtml}
                 </div>

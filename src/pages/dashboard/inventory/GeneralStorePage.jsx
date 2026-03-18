@@ -18,15 +18,6 @@ import {
 } from "lucide-react";
 import StockUpdateModal from "@/components/dashboard/inventory/StockUpdateModal";
 
-const categories = [
-  { id: "all", label: "All Products", icon: "📦" },
-  { id: "bags", label: "Bags", icon: "🎒" },
-  { id: "bottles", label: "Bottles", icon: "🍶" },
-  { id: "stationery", label: "Stationery", icon: "✏️" },
-  { id: "art_supplies", label: "Art Supplies", icon: "🎨" },
-  { id: "general_books", label: "General Books", icon: "📚" },
-];
-
 export default function GeneralStorePage() {
   const { activeWarehouse } = useWarehouse();
   const { toast } = useToast();
@@ -59,6 +50,63 @@ export default function GeneralStorePage() {
     return () => clearTimeout(timer);
   }, [filters.search]);
 
+  const [categories, setCategories] = useState([
+    { id: "all", label: "All Products", icon: "📦" },
+  ]);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        // Fetch root categories. 
+        // Assuming general categories don't have schoolCat=true. 
+        // If your API distinguishes differently, adjust params.
+        const response = await productService.getCategories();
+        
+        // The service returns response.data.data or response.data.
+        // Let's handle both based on inspection of service
+        // Service says: return response.data.data || response.data;
+        // CategorySelector uses res.categories. 
+        // Let's look at CategorySelector again. 
+        // It says: const res_data = await productService.getCategories({ parentId });
+        // const data = res_data.categories;
+        
+        // So the response object has a 'categories' property? 
+        // Service code: return response.data.data || response.data;
+        // If response.data is { categories: [...] }, then that's what we get.
+        
+        let fetchedCats = [];
+        if (response && response.categories) {
+            fetchedCats = response.categories;
+        } else if (Array.isArray(response)) {
+            fetchedCats = response;
+        }
+
+        const iconMap = {
+          bags: "🎒",
+          bottles: "🍶",
+          stationery: "✏️",
+          "art supplies": "🎨",
+          "general books": "📚",
+        };
+
+        const mappedCategories = fetchedCats.map((cat) => ({
+          id: cat.id,
+          label: cat.name,
+          icon: iconMap[cat.name.toLowerCase()] || "📦",
+        }));
+
+        setCategories([
+          { id: "all", label: "All Products", icon: "📦" },
+          ...mappedCategories,
+        ]);
+      } catch (error) {
+        console.error("Failed to load categories", error);
+      }
+    };
+
+    loadCategories();
+  }, []);
+
   const fetchProducts = useCallback(async () => {
     if (!activeWarehouse?.id) return;
 
@@ -71,7 +119,7 @@ export default function GeneralStorePage() {
         search: debouncedSearch,
         categoryId: filters.category === "all" ? "" : filters.category,
         status: filters.status,
-        productType: "all", // allow seeing addons in admin panel
+        productType: "general", // Fixed: "all" is invalid, must be "general"
       });
 
       console.log(response);
