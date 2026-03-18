@@ -186,7 +186,8 @@ export default function ActiveOrdersPage() {
             }
             return '';
         }).filter(Boolean).join('');
-
+        
+        
         return `
             <div class="label-container">
             <div class="label-box">
@@ -207,7 +208,7 @@ export default function ActiveOrdersPage() {
                 <div class="body-section">
                     <div class="text-bold mb-1">Shipping Address:</div>
                     <div class="mb-4">${addressLines}<br/></div>
-                    <div class="text-bold mb-3">Dispatch ID: ${order.items?.[0]?.dispatchId || '—'}</div>
+                    <div class="text-bold mb-3">Dispatch ID: ${order.items?.[0]?.dispatchId || "—"}</div>
                     <div class="text-bold mb-3">Order Number: ${shortenOrderId(order)}</div>
                     <div class="text-bold mb-3">Order ID: ${order.id}</div>
                     
@@ -220,20 +221,26 @@ export default function ActiveOrdersPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            ${order.items?.map(item => `
+                            ${
+                              order.items
+                                ?.map(
+                                  (item) => `
                             <tr>
-                                <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ''}</td>
-                                <td style="text-align: center;">${order.paymentMethod === 'cod' ? 'COD' : 'Prepaid'}</td>
+                                <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ""}</td>
+                                <td style="text-align: center;">${order.paymentMethod === "cod" ? "COD" : "Prepaid"}</td>
                             </tr>
-                            `).join('') || ''}
+                            `,
+                                )
+                                .join("") || ""
+                            }
                         </tbody>
                     </table>
                     
                     <div class="mb-2" style="margin-top: 32px; font-size: 1.1em;">
-                        <span class="text-bold">Total Amount: ₹${order.totalAmount?.toLocaleString() || '0'}</span>
+                        <span class="text-bold">Total Amount: ₹${order.items?.[0]?.totalPrice?.toLocaleString() || "0"}</span>
                     </div>
                     <div class="mb-2">
-                        Payment Due on Receipt: ${order.paymentMethod === 'cod' ? 'COD' : 'Prepaid'}
+                        Payment Due on Receipt: ${order.paymentMethod === "cod" ? "COD" : "Prepaid"}
                     </div>
                     ${customerMessagesHtml}
                 </div>
