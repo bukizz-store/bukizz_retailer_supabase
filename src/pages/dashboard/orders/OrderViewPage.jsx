@@ -239,24 +239,6 @@ export default function OrderViewPage() {
   // ── Print label ──
   const handlePrintLabel = () => {
     if (!order) return;
-    
-    // Group items for print
-    let groupedItems = order.items || [];
-    const pItems = groupedItems.filter(i => !i.parentItemId);
-    const cItems = groupedItems.filter(i => i.parentItemId);
-    
-    groupedItems = [];
-    pItems.forEach(parent => {
-      groupedItems.push(parent);
-      cItems.filter(child => child.parentItemId === parent.id).forEach(child => {
-        child.isAddon = true;
-        groupedItems.push(child);
-      });
-    });
-    cItems.forEach(child => {
-      if (!groupedItems.find(i => i.id === child.id)) groupedItems.push(child);
-    });
-
     const address = order.shippingAddress || {};
     const addressLines = [
       `Student: ${address.studentName || "—"}`,
@@ -265,7 +247,8 @@ export default function OrderViewPage() {
       address.line1,
       address.line2,
       `${address.city || ""}${address.city && address.state ? ", " : ""}${address.state || ""} ${address.postalCode || ""}`.trim(),
-      order.contactPhone ? `Phone: ${order.contactPhone}` : "",
+      address.phone ? `Main Phone: ${address.phone}` : "",
+      order.contactPhone ? `Alternate Phone: ${order.contactPhone}` : "",
     ]
       .filter(Boolean)
       .join("<br/>");
@@ -273,9 +256,9 @@ export default function OrderViewPage() {
     const retailerName =
       authUser?.fullName || authUser?.name || "Retailer Name";
     const warehouseName = activeWarehouse?.name || "Warehouse Name";
-    const qrData = `${groupedItems?.[0]?.id || ""} , ${order.id}`;
+    const qrData = `${order.items?.[0]?.id || ""} , ${order.id}`;
 
-    const customerMessagesHtml = groupedItems?.map(item => {
+    const customerMessagesHtml = order.items?.map(item => {
       const msg = item.productSnapshot?.metadata?.customerMessage || item.metadata?.customerMessage;
       if (msg && msg.type && msg.type !== 'none' && (msg.text || msg.imageUrl)) {
           return `
@@ -289,11 +272,66 @@ export default function OrderViewPage() {
       return '';
     }).filter(Boolean).join('');
 
-    const labelContent = `
+    const labelHtml = `
+            <div class="label-container">
+            <div class="label-box">
+                <div class="header-row">
+                    <div class="header-left">
+                        <div class="text-bold">Delivered By:</div>
+                        <div class="logo-row">
+                            <img src="${window.location.origin}/logo.svg" alt="bukizz" style="height: 48px;" onerror="this.style.display='none'" />
+                        </div>
+                        <div class="text-bold mb-1">Fulfilled By:</div>
+                        <div>${retailerName} ,<br/>${warehouseName}</div>
+                    </div>
+                    <div class="header-right">
+                        <div class="mb-2">QR</div>
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrData)}" alt="QR Code" style="width: 120px; height: 120px; margin-bottom: 8px;"/>
+                    </div>
+                </div>
+                <div class="body-section">
+                    <div class="text-bold mb-1">Shipping Address:</div>
+                    <div class="mb-4">${addressLines}<br/></div>
+                    <div class="text-bold mb-3">Dispatch ID: ${order.items?.[0]?.dispatchId || '—'}</div>
+                    <div class="text-bold mb-3">Order Number: ${shortenOrderId(order)}</div>
+                    <div class="text-bold mb-3">Order ID: ${order.id}</div>
+                    
+                    <div class="text-bold mb-2">Details:</div>
+                    <table class="mb-4">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Payment Method</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${order.items?.map(item => `
+                            <tr>
+                                <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ''}</td>
+                                <td style="text-align: center;">${order.paymentMethod === 'cod' ? 'COD' : 'Prepaid'}</td>
+                            </tr>
+                            `).join('') || ''}
+                        </tbody>
+                    </table>
+                    
+                    <div class="mb-2" style="margin-top: 32px; font-size: 1.1em;">
+                        <span class="text-bold">Total Amount: ₹${order.totalAmount?.toLocaleString() || '0'}</span>
+                    </div>
+                    <div class="mb-2">
+                        Payment Due on Receipt: ${order.paymentMethod === 'cod' ? 'COD' : 'Prepaid'}
+                    </div>
+                    ${customerMessagesHtml}
+                </div>
+            </div>
+            </div>`;
+
+    const fullHtml = `
             <html><head><title>Label — ${shortenOrderId(order)}</title>
             <style>
-                body { font-family: Arial, sans-serif; padding: 20px; display: flex; justify-content: center; }
-                .label-box { border: 2px solid #000; width: 100%; max-width: 550px; }
+                body { font-family: Arial, sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; margin: 0; background: #f0f0f0; }
+                .label-container { width: 100%; max-width: 550px; background: white; padding: 0; page-break-after: always; }
+                .label-container:last-child { page-break-after: auto; }
+                .label-box { border: 2px solid #000; width: 100%; box-sizing: border-box; }
                 .header-row { display: flex; border-bottom: 2px solid #000; }
                 .header-left { flex: 1; padding: 16px; border-right: 2px solid #000; }
                 .header-right { flex: 1; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
@@ -313,66 +351,19 @@ export default function OrderViewPage() {
                 .customer-message-content table { width: 100%; border-collapse: collapse; margin-block: 8px; }
                 .customer-message-content th, .customer-message-content td { border: 1px solid #ccc; padding: 6px; }
                 .customer-message-content p { margin: 4px 0; }
+                
+                @media print {
+                    body { padding: 0; background: white; display: block; }
+                    .label-container { page-break-after: always; max-width: 100%; box-shadow: none; margin-bottom: 0; }
+                    .label-container:last-child { page-break-after: auto; }
+                }
             </style></head><body>
-            <div class="label-box">
-                <div class="header-row">
-                    <div class="header-left">
-                        <div class="text-bold">Delivered By:</div>
-                        <div class="logo-row">
-                            <img src="${window.location.origin}/logo.svg" alt="bukizz" style="height: 32px;" onerror="this.style.display='none'" />
-                        </div>
-                        <div class="text-bold mb-1">Fulfilled By:</div>
-                        <div>${retailerName} ,<br/>${warehouseName}</div>
-                    </div>
-                    <div class="header-right">
-                        <div class="mb-2">QR</div>
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrData)}" alt="QR Code" style="width: 120px; height: 120px; margin-bottom: 8px;"/>
-                    </div>
-                </div>
-                <div class="body-section">
-                    <div class="text-bold mb-1">Shipping Address:</div>
-                    <div class="mb-4">${addressLines}<br/></div>
-                    
-                    <div class="text-bold mb-3">Order Number: ${shortenOrderId(order)}</div>
-                    
-                    <div class="text-bold mb-4">Delivery Date: ${order.deliveryDate || "N/A"}</div>
-                    
-                    <div class="text-bold mb-2">Details:</div>
-                    <table class="mb-4">
-                        <thead>
-                            <tr>
-                                <th>Item</th>
-                                <th>Amount</th>
-                                <th>Payment Method</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${
-                              groupedItems
-                                ?.map(
-                                  (item) => `
-                            <tr>
-                                <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ""}</td>
-                                <td style="text-align: center;">${order.totalAmount || item.totalPrice || item.unitPrice * (item.quantity || 1)}</td>
-                                <td style="text-align: center;">Prepaid</td>
-                            </tr>
-                            `,
-                                )
-                                .join("") || ""
-                            }
-                        </tbody>
-                    </table>
-                    
-                    <div class="mb-2" style="margin-top: 32px;">
-                        Payment Due on Receipt: ${order.paymentMethod === "cod" ? "COD" : "Prepaid"}
-                    </div>
-                    ${customerMessagesHtml}
-                </div>
-            </div>
+            ${labelHtml}
             </body></html>`;
-    const printWindow = window.open("", "_blank", "width=600,height=800");
+
+    const printWindow = window.open("", "_blank", "width=800,height=800");
     if (printWindow) {
-      printWindow.document.write(labelContent);
+      printWindow.document.write(fullHtml);
       printWindow.document.close();
       setTimeout(() => {
         printWindow.focus();
