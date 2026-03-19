@@ -409,7 +409,7 @@ export default function ActiveOrdersPage() {
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Order ID</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Order Details</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Date & Time</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Student Name</th>
+                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Student / Customer</th>
                                 <th className="px-6 py-4 text-right text-sm font-semibold text-slate-900">Amount</th>
                                 <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Qty</th>
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Payment</th>
@@ -492,7 +492,8 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
     ) || order.metadata?.orderSummary?.items?.some(
         (item) => item.productSnapshot?.productType === 'bookset' || item.productSnapshot?.productType === 'uniform'
     );
-    const studentName = order.shippingAddress?.studentName || order.contactEmail || 'Student';
+    const studentName = order.shippingAddress?.studentName || '—';
+    const customerName = order.shippingAddress?.recipientName || order.contactEmail || '—';
     const amount = order.items?.[0].unitPrice || order.totalAmount || 0;
     const createdAtDate = order.createdAt
         ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -545,9 +546,12 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
                 <p className="text-xs text-slate-500 mt-0.5">{createdAtTime}</p>
             </td>
 
-            {/* Student Name */}
+            {/* Student / Customer */}
             <td className="px-6 py-4">
-                <p className="text-sm font-medium text-slate-900 truncate max-w-[180px]">{studentName}</p>
+                <div className="flex flex-col">
+                    <p className="text-sm font-medium text-slate-900 truncate max-w-[180px]" title={studentName}>{studentName}</p>
+                    <p className="text-xs text-slate-500 truncate max-w-[180px]" title={customerName}>{customerName}</p>
+                </div>
             </td>
 
             {/* Amount */}
