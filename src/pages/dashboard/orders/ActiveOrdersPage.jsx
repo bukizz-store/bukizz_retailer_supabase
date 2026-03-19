@@ -217,6 +217,7 @@ export default function ActiveOrdersPage() {
                         <thead>
                             <tr>
                                 <th>Item</th>
+                                <th>Qty</th>
                                 <th>Payment Method</th> 
                             </tr>
                         </thead>
@@ -227,6 +228,7 @@ export default function ActiveOrdersPage() {
                                   (item) => `
                             <tr>
                                 <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ""}</td>
+                                <td style="text-align: center;">${item.quantity || 1}</td>
                                 <td style="text-align: center;">${order.paymentStatus === 'paid' ? 'Prepaid' : (order.paymentMethod === "cod" ? "COD" : "Prepaid")}</td>
                             </tr>
                             `,
