@@ -241,125 +241,132 @@ export default function OrderViewPage() {
     if (!order) return;
     const address = order.shippingAddress || {};
     const addressLines = [
-      `Student: ${address.studentName || "—"}`,
-      " ",
-      address.recipientName || order.contactEmail || "Customer",
-      address.line1,
-      address.line2,
-      `${address.city || ""}${address.city && address.state ? ", " : ""}${address.state || ""} ${address.postalCode || ""}`.trim(),
-      address.phone ? `Main Phone: ${address.phone}` : "",
-      order.contactPhone ? `Alternate Phone: ${order.contactPhone}` : "",
-    ]
-      .filter(Boolean)
-      .join("<br/>");
+        `Student: ${address.studentName}`,
+        " ",
+        address.recipientName || order.contactEmail || 'Customer',
+        address.line1,
+        address.line2,
+        `${address.city || ''}${address.city && address.state ? ', ' : ''}${address.state || ''} ${address.postalCode || ''}`.trim(),
+        address.phone ? `Main Phone: ${address.phone}` : '',
+        order.contactPhone ? `Alternate Phone: ${order.contactPhone}` : ''
+    ].filter(Boolean).join('<br/>');
 
-    const retailerName =
-      authUser?.fullName || authUser?.name || "Retailer Name";
-    const warehouseName = activeWarehouse?.name || "Warehouse Name";
-    const qrData = `${order.items?.[0]?.id || ""} , ${order.id}`;
+    const retailerName = authUser?.fullName || authUser?.name || 'Retailer Name';
+    const warehouseName = activeWarehouse?.name || 'Warehouse Name';
+    const qrData = `${order.items?.[0]?.id || ''} , ${order.id}`;
 
     const customerMessagesHtml = order.items?.map(item => {
-      const msg = item.productSnapshot?.metadata?.customerMessage || item.metadata?.customerMessage;
-      if (msg && msg.type && msg.type !== 'none' && (msg.text || msg.imageUrl)) {
-          return `
-              <div style="margin-top: 16px; padding: 12px; border: 1px dashed #666; background-color: #fafafa; border-radius: 4px;">
-                  <div style="font-weight: bold; text-transform: uppercase; font-size: 12px; color: #555; margin-bottom: 4px;">${msg.type}</div>
-                  <div class="customer-message-content" style="margin-bottom: ${msg.imageUrl ? '8px' : '0'};">${msg.text || ''}</div>
-                  ${msg.imageUrl ? `<img src="${msg.imageUrl}" style="max-width: 100%; max-height: 200px; border-radius: 4px; display: block;" />` : ''}
-              </div>
-          `;
-      }
-      return '';
-    }).filter(Boolean).join('');
-
-    const labelHtml = `
-            <div class="label-container">
-            <div class="label-box">
-                <div class="header-row">
-                    <div class="header-left">
-                        <div class="text-bold">Delivered By:</div>
-                        <div class="logo-row">
-                            <img src="${window.location.origin}/logo.svg" alt="bukizz" style="height: 48px;" onerror="this.style.display='none'" />
-                        </div>
-                        <div class="text-bold mb-1">Fulfilled By:</div>
-                        <div>${retailerName} ,<br/>${warehouseName}</div>
-                    </div>
-                    <div class="header-right">
-                        <div style="font-size: 1.8em; font-weight: bold; margin-bottom: 8px;">${order.items?.[0]?.dispatchId || '—'}</div>
-                        <div class="mb-2">QR</div>
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrData)}" alt="QR Code" style="width: 120px; height: 120px; margin-bottom: 8px;"/>
-                    </div>
+        const msg = item.productSnapshot?.metadata?.customerMessage || item.metadata?.customerMessage;
+        if (msg && msg.type && msg.type !== 'none' && (msg.text || msg.imageUrl)) {
+            return `
+                <div style="margin-top: 16px; padding: 12px; border: 1px dashed #666; background-color: #fafafa; border-radius: 4px;">
+                    <div style="font-weight: bold; text-transform: uppercase; font-size: 12px; color: #555; margin-bottom: 4px;">${msg.type}</div>
+                    <div class="customer-message-content" style="margin-bottom: ${msg.imageUrl ? '8px' : '0'};">${msg.text || ''}</div>
+                    ${msg.imageUrl ? `<img src="${msg.imageUrl}" style="max-width: 100%; max-height: 200px; border-radius: 4px; display: block;" />` : ''}
                 </div>
-                <div class="body-section">
-                    <div class="text-bold mb-1">Shipping Address:</div>
-                    <div class="mb-4">${addressLines}<br/></div>
-                    <div class="text-bold mb-3">Order Number: ${shortenOrderId(order)}</div>
-                    <div class="text-bold mb-3">Order ID: ${order.id}</div>
-                    
-                    <div class="text-bold mb-2">Details:</div>
-                    <table class="mb-4">
-                        <thead>
-                            <tr>
-                                <th>Item</th>
-                                <th>Payment Method</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${order.items?.map(item => `
-                            <tr>
-                                <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ''}</td>
-                                <td style="text-align: center;">${order.paymentStatus === 'paid' ? 'Prepaid' : (order.paymentMethod === 'cod' ? 'COD' : 'Prepaid')}</td>
-                            </tr>
-                            `).join('') || ''}
-                        </tbody>
-                    </table>
-                    
-                    <div class="mb-2" style="margin-top: 32px; font-size: 1.1em;">
-                        <span class="text-bold">Total Amount: ₹${order.totalAmount?.toLocaleString() || '0'}</span>
+            `;
+        }
+        return '';
+    }).filter(Boolean).join('');
+    
+    
+    const labelHtml = `
+        <div class="label-container">
+        <div class="label-box">
+            <div class="header-row">
+                <div class="header-left">
+                    <div class="text-bold">Delivered By:</div>
+                    <div class="logo-row">
+                        <img src="${window.location.origin}/logo.svg" alt="bukizz" style="height: 48px;" onerror="this.style.display='none'" />
                     </div>
-                    <div class="mb-2">
-                        Payment Due on Receipt: ${order.paymentStatus === 'paid' ? 'Prepaid' : (order.paymentMethod === 'cod' ? 'COD' : 'Prepaid')}
-                    </div>
-                    ${customerMessagesHtml}
+                    <div class="text-bold mb-1">Fulfilled By:</div>
+                    <div>${retailerName} ,<br/>${warehouseName}</div>
+                </div>
+                <div class="header-right">
+                    <div style="font-size: 1.8em; font-weight: bold; margin-bottom: 8px;">${order.items?.[0]?.dispatchId || "—"}</div>
+                    <div class="mb-2">QR</div>
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrData)}" alt="QR Code" style="width: 120px; height: 120px; margin-bottom: 8px;"/>
                 </div>
             </div>
-            </div>`;
+            <div class="body-section">
+                <div class="text-bold mb-1">Shipping Address:</div>
+                <div class="mb-4">${addressLines}<br/></div>
+                <div class="text-bold mb-3">Order Number: ${shortenOrderId(order)}</div>
+                <div class="text-bold mb-3">Order ID: ${order.id}</div>
+                
+                <div class="text-bold mb-2">Details:</div>
+                <table class="mb-4">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Qty</th>
+                            <th>Payment Method</th> 
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${
+                          order.items
+                            ?.map(
+                              (item) => `
+                        <tr>
+                            <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ""}</td>
+                            <td style="text-align: center;">${item.quantity || 1}</td>
+                            <td style="text-align: center;">${order.paymentStatus === 'paid' ? 'Prepaid' : (order.paymentMethod === "cod" ? "COD" : "Prepaid")}</td>
+                        </tr>
+                        `,
+                            )
+                            .join("") || ""
+                        }
+                    </tbody>
+                </table>
+                
+                <div class="mb-2" style="margin-top: 32px; font-size: 1.1em;">
+                    <span class="text-bold">Total Amount: ₹${((order.items?.[0]?.totalPrice || 0) + (order.items?.[0]?.deliveryFee || order.items?.[0]?.delivery_fee || 0) + (order.items?.[0]?.platformFee || order.items?.[0]?.platform_fee || 0)).toLocaleString()}</span>
+                </div>
+                <div class="mb-2">
+                    Payment Due on Receipt: ${order.paymentStatus === 'paid' ? 'Prepaid' : (order.paymentMethod === "cod" ? "COD" : "Prepaid")}
+                </div>
+                ${customerMessagesHtml}
+            </div>
+        </div>
+        </div>
+    `;
 
     const fullHtml = `
-            <html><head><title>Label — ${shortenOrderId(order)}</title>
-            <style>
-                body { font-family: Arial, sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; margin: 0; background: #f0f0f0; }
-                .label-container { width: 100%; max-width: 550px; background: white; padding: 0; page-break-after: always; }
+        <html><head><title>Label — ${shortenOrderId(order)}</title>
+        <style>
+            body { font-family: Arial, sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; margin: 0; background: #f0f0f0; }
+            .label-container { width: 100%; max-width: 550px; background: white; padding: 0; page-break-after: always; }
+            .label-container:last-child { page-break-after: auto; }
+            .label-box { border: 2px solid #000; width: 100%; box-sizing: border-box; }
+            .header-row { display: flex; border-bottom: 2px solid #000; }
+            .header-left { flex: 1; padding: 16px; border-right: 2px solid #000; }
+            .header-right { flex: 1; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+            .logo-row { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
+            .body-section { padding: 16px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            table th, table td { border: 1px solid #000; padding: 10px; text-align: left; }
+            table th { background-color: #f9f9f9; text-align: center; }
+            .text-bold { font-weight: bold; }
+            .mb-1 { margin-bottom: 4px; }
+            .mb-2 { margin-bottom: 8px; }
+            .mb-3 { margin-bottom: 12px; }
+            .mb-4 { margin-bottom: 16px; }
+            
+            .customer-message-content { font-size: 14px; }
+            .customer-message-content img { max-width: 100% !important; height: auto !important; max-height: 400px; object-fit: contain; border-radius: 4px; }
+            .customer-message-content table { width: 100%; border-collapse: collapse; margin-block: 8px; }
+            .customer-message-content th, .customer-message-content td { border: 1px solid #ccc; padding: 6px; }
+            .customer-message-content p { margin: 4px 0; }
+            
+            @media print {
+                body { padding: 0; background: white; display: block; }
+                .label-container { page-break-after: always; max-width: 100%; box-shadow: none; margin-bottom: 0; }
                 .label-container:last-child { page-break-after: auto; }
-                .label-box { border: 2px solid #000; width: 100%; box-sizing: border-box; }
-                .header-row { display: flex; border-bottom: 2px solid #000; }
-                .header-left { flex: 1; padding: 16px; border-right: 2px solid #000; }
-                .header-right { flex: 1; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-                .logo-row { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
-                .body-section { padding: 16px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-                th, td { border: 1px solid #000; padding: 10px; text-align: left; }
-                th { background-color: #f9f9f9; text-align: center; }
-                .text-bold { font-weight: bold; }
-                .mb-1 { margin-bottom: 4px; }
-                .mb-2 { margin-bottom: 8px; }
-                .mb-3 { margin-bottom: 12px; }
-                .mb-4 { margin-bottom: 16px; }
-                
-                .customer-message-content { font-size: 14px; }
-                .customer-message-content img { max-width: 100% !important; height: auto !important; max-height: 400px; object-fit: contain; border-radius: 4px; }
-                .customer-message-content table { width: 100%; border-collapse: collapse; margin-block: 8px; }
-                .customer-message-content th, .customer-message-content td { border: 1px solid #ccc; padding: 6px; }
-                .customer-message-content p { margin: 4px 0; }
-                
-                @media print {
-                    body { padding: 0; background: white; display: block; }
-                    .label-container { page-break-after: always; max-width: 100%; box-shadow: none; margin-bottom: 0; }
-                    .label-container:last-child { page-break-after: auto; }
-                }
-            </style></head><body>
-            ${labelHtml}
-            </body></html>`;
+            }
+        </style></head><body>
+        ${labelHtml}
+        </body></html>`;
 
     const printWindow = window.open("", "_blank", "width=800,height=800");
     if (printWindow) {
