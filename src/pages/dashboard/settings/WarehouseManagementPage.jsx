@@ -14,6 +14,8 @@ import {
   Phone,
   MapPin,
   Globe,
+  User,
+  Navigation2,
 } from "lucide-react";
 
 const INITIAL_FORM = {
@@ -22,12 +24,16 @@ const INITIAL_FORM = {
   contactEmail: "",
   website: "",
   address: {
+    recipientName: "",
+    phone: "",
     line1: "",
     line2: "",
     city: "",
     state: "",
     postalCode: "",
     country: "India",
+    lat: "",
+    lng: "",
   },
 };
 
@@ -48,12 +54,16 @@ const WarehouseManagementPage = () => {
         contactEmail: warehouse.contact_email || "",
         website: warehouse.website || "",
         address: {
+          recipientName: warehouse.address?.recipient_name || "",
+          phone: warehouse.address?.phone || "",
           line1: warehouse.address?.line1 || "",
           line2: warehouse.address?.line2 || "",
           city: warehouse.address?.city || "",
           state: warehouse.address?.state || "",
           postalCode: warehouse.address?.postal_code || "",
           country: warehouse.address?.country || "India",
+          lat: warehouse.address?.lat || "",
+          lng: warehouse.address?.lng || "",
         },
       });
     } else {
@@ -297,11 +307,33 @@ const WarehouseManagementPage = () => {
                     </span>
                   </div>
 
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Recipient / Contact Person Name"
+                      placeholder="Ex. John Doe"
+                      value={formData.address.recipientName}
+                      onChange={(e) =>
+                        updateAddress("recipientName", e.target.value)
+                      }
+                      icon={<User className="h-4 w-4" />}
+                    />
+                    <Input
+                      label="Warehouse Phone"
+                      placeholder="+91..."
+                      value={formData.address.phone}
+                      onChange={(e) =>
+                        updateAddress("phone", e.target.value)
+                      }
+                      icon={<Phone className="h-4 w-4" />}
+                    />
+                  </div>
+
                   <Input
                     label="Address Line 1"
                     placeholder="Street address, building, floor..."
                     value={formData.address.line1}
                     onChange={(e) => updateAddress("line1", e.target.value)}
+                    required
                   />
 
                   <Input
@@ -317,12 +349,14 @@ const WarehouseManagementPage = () => {
                       placeholder="Ex. Mumbai"
                       value={formData.address.city}
                       onChange={(e) => updateAddress("city", e.target.value)}
+                      required
                     />
                     <Input
                       label="State"
                       placeholder="Ex. Maharashtra"
                       value={formData.address.state}
                       onChange={(e) => updateAddress("state", e.target.value)}
+                      required
                     />
                   </div>
 
@@ -334,12 +368,34 @@ const WarehouseManagementPage = () => {
                       onChange={(e) =>
                         updateAddress("postalCode", e.target.value)
                       }
+                      required
                     />
                     <Input
                       label="Country"
                       placeholder="India"
                       value={formData.address.country}
                       onChange={(e) => updateAddress("country", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Latitude"
+                      type="number"
+                      step="any"
+                      placeholder="Ex. 19.0760"
+                      value={formData.address.lat}
+                      onChange={(e) => updateAddress("lat", e.target.value)}
+                      icon={<Navigation2 className="h-4 w-4" />}
+                    />
+                    <Input
+                      label="Longitude"
+                      type="number"
+                      step="any"
+                      placeholder="Ex. 72.8777"
+                      value={formData.address.lng}
+                      onChange={(e) => updateAddress("lng", e.target.value)}
+                      icon={<Navigation2 className="h-4 w-4" />}
                     />
                   </div>
                 </div>

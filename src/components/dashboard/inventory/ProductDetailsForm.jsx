@@ -190,6 +190,7 @@ function BrandCombobox({ selected, onSelect, onAddNew, refreshKey }) {
 // Main Component
 // ────────────────────────────────────────────────────────────────
 const GRADE_OPTIONS = [
+  "PREP",
   "PG",
   "JKG",
   "KG",
@@ -253,6 +254,7 @@ export default function ProductDetailsForm({
     city: cityToUse || "",
     basePrice: "",
     compareAtPrice: "",
+    deliveryHours: 24,
     shortDescription: "",
     description: "", // RTE HTML — maps to productData.description
   });
@@ -299,6 +301,7 @@ export default function ProductDetailsForm({
                 p.productData.compare_at_price ||
                 p.productData.compareAtPrice ||
                 "",
+              deliveryHours: p.productData.deliveryHours || 24,
               shortDescription:
                 p.productData.short_description ||
                 p.productData.shortDescription ||
@@ -971,6 +974,7 @@ export default function ProductDetailsForm({
         productType: isSchoolFlow ? localProductType : (isAddon ? "addon" : "general"),
         basePrice: parseFloat(formData.basePrice),
         compareAtPrice: parseFloat(formData.compareAtPrice) || null,
+        deliveryHours: parseInt(formData.deliveryHours) || 24,
         shortDescription: formData.shortDescription,
         description: formData.description, // RTE HTML
         city: formData.city,
@@ -1121,7 +1125,7 @@ export default function ProductDetailsForm({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input
                 label="Base Price (₹)"
                 required
@@ -1141,6 +1145,15 @@ export default function ProductDetailsForm({
                 onChange={(e) => updateField("compareAtPrice", e.target.value)}
                 placeholder="0.00"
                 helperText="MRP / original price for discount"
+              />
+              <Input
+                label="Estimated Delivery Hours"
+                type="number"
+                min="1"
+                placeholder="24"
+                value={formData.deliveryHours}
+                onChange={(e) => updateField("deliveryHours", e.target.value)}
+                helperText="Enter the estimated hours it takes to deliver this product. The main website uses this to calculate if the delivery will be 'Same Day' or 'Next Day' based on our 8 AM - 10 PM working hours."
               />
             </div>
 
