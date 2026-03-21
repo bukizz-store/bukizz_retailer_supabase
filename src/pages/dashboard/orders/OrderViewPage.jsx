@@ -307,13 +307,31 @@ export default function OrderViewPage() {
                         ${
                           order.items
                             ?.map(
-                              (item) => `
+                              (item) => {
+                                const variantParts = [];
+                                if (item.variant?.options?.length > 0) {
+                                  item.variant.options.forEach(opt => {
+                                    if (opt.attribute?.name) {
+                                      variantParts.push(`${opt.attribute.name}: ${opt.value}`);
+                                    } else if (opt.value) {
+                                      variantParts.push(opt.value);
+                                    }
+                                  });
+                                }
+                                const variantStr = variantParts.join(', ') || item.variantDetail || item.productSnapshot?.variantName || "";
+                                
+                                return `
                         <tr>
-                            <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ""}</td>
+                            <td>
+                                <div class="text-bold">${item.title || item.productSnapshot?.name}</div>
+                                <div style="font-size: 0.9em; color: #444;">${item.schoolName || ""}</div>
+                                ${variantStr ? `<div style="font-size: 0.85em; color: #666; margin-top: 2px;">Variant: ${variantStr}</div>` : ""}
+                            </td>
                             <td style="text-align: center;">${item.quantity || 1}</td>
                             <td style="text-align: center;">${order.paymentStatus === 'paid' ? 'Prepaid' : (order.paymentMethod === "cod" ? "COD" : "Prepaid")}</td>
                         </tr>
-                        `,
+                        `;
+                              },
                             )
                             .join("") || ""
                         }

@@ -186,6 +186,21 @@ export default function ActiveOrdersPage() {
             }
             return '';
         }).filter(Boolean).join('');
+
+        const getItemVariantString = (item) => {
+            const variantParts = [];
+            if (item.variant?.options?.length > 0) {
+                item.variant.options.forEach(opt => {
+                    if (opt.attribute?.name) {
+                        variantParts.push(`${opt.attribute.name}: ${opt.value}`);
+                    } else if (opt.value) {
+                        variantParts.push(opt.value);
+                    }
+                });
+            }
+            const variantInfo = variantParts.join(', ');
+            return variantInfo || item.variantDetail || item.productSnapshot?.variantName || "";
+        };
         
         
         return `
@@ -225,13 +240,20 @@ export default function ActiveOrdersPage() {
                             ${
                               order.items
                                 ?.map(
-                                  (item) => `
+                                  (item) => {
+                                    const variantStr = getItemVariantString(item);
+                                    return `
                             <tr>
-                                <td>${item.title || item.productSnapshot?.name} - ${item.schoolName || ""}</td>
+                                <td>
+                                    <div class="text-bold">${item.title || item.productSnapshot?.name}</div>
+                                    <div style="font-size: 0.9em; color: #444;">${item.schoolName || ""}</div>
+                                    ${variantStr ? `<div style="font-size: 0.85em; color: #666; margin-top: 2px;">Variant: ${variantStr}</div>` : ""}
+                                </td>
                                 <td style="text-align: center;">${item.quantity || 1}</td>
                                 <td style="text-align: center;">${order.paymentStatus === 'paid' ? 'Prepaid' : (order.paymentMethod === "cod" ? "COD" : "Prepaid")}</td>
                             </tr>
-                            `,
+                            `;
+                                  },
                                 )
                                 .join("") || ""
                             }
@@ -531,9 +553,22 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
                             {item.variant?.sku && (
                                 <p className="text-xs text-slate-500">SKU: {item.variant.sku}</p>
                             )}
-                            {(item.variantDetail || item.productSnapshot?.variantName) && (
-                                <p className="text-xs text-slate-500">{item.variantDetail || item.productSnapshot?.variantName}</p>
-                            )}
+                            {(() => {
+                                const variantParts = [];
+                                if (item.variant?.options?.length > 0) {
+                                    item.variant.options.forEach(opt => {
+                                        if (opt.attribute?.name) {
+                                            variantParts.push(`${opt.attribute.name}: ${opt.value}`);
+                                        } else if (opt.value) {
+                                            variantParts.push(opt.value);
+                                        }
+                                    });
+                                }
+                                const variantInfo = variantParts.join(', ') || item.variantDetail || item.productSnapshot?.variantName;
+                                return variantInfo ? (
+                                    <p className="text-xs text-slate-500 font-medium">{variantInfo}</p>
+                                ) : null;
+                            })()}
                         </div>
                     ))}
                     {(!order.items || order.items.length === 0) && <span className="text-sm text-slate-400">No details</span>}
