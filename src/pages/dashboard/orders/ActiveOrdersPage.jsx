@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
@@ -77,7 +77,7 @@ function getOrderStatus(order) {
 
 export default function ActiveOrdersPage() {
     const {
-        orders, totalCount, isLoading, isUpdatingStatus, error,
+        orders, totalCount, statusCounts, isLoading, isUpdatingStatus, error,
         statusFilter, searchQuery, page, limit,
         fetchOrders, setStatusFilter, setSearchQuery, setPage, setLimit,
         updateOrderItemStatus, clearError,
@@ -86,6 +86,7 @@ export default function ActiveOrdersPage() {
     const { activeWarehouse } = useWarehouse();
     const { user } = useAuthStore();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [selectedOrders, setSelectedOrders] = useState([]);
     const searchTimeoutRef = useRef(null);
 
@@ -97,7 +98,6 @@ export default function ActiveOrdersPage() {
         fetchOrders(warehouseId);
     }, [page, limit, warehouseId, fetchOrders]);
 
-    // ── Debounced search ──
     const handleSearchChange = useCallback(
         (e) => {
             const value = e.target.value;
@@ -110,29 +110,38 @@ export default function ActiveOrdersPage() {
         [setSearchQuery, fetchOrders, warehouseId]
     );
 
+    // ── URL Params Sync ──
+    // Load from URL on mount
+    useEffect(() => {
+        const urlPage = parseInt(searchParams.get('page')) || 1;
+        const urlStatus = searchParams.get('status') || 'all';
+        const urlSearch = searchParams.get('search') || '';
+
+        if (urlPage !== useOrderStore.getState().page) setPage(urlPage);
+        if (urlStatus !== useOrderStore.getState().statusFilter) setStatusFilter(urlStatus);
+        if (urlSearch !== useOrderStore.getState().searchQuery) setSearchQuery(urlSearch);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Save to URL on change
+    useEffect(() => {
+        const p = {};
+        if (page > 1) p.page = page.toString();
+        if (statusFilter !== 'all') p.status = statusFilter;
+        if (searchQuery) p.search = searchQuery;
+        setSearchParams(p, { replace: true });
+    }, [page, statusFilter, searchQuery, setSearchParams]);
+
     useEffect(() => {
         return () => {
             if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         };
     }, []);
 
-    // ── Active (non-terminal) orders — exclude delivered/cancelled/refunded ──
-    const activeOrders = orders.filter(
-        (o) => !['delivered', 'cancelled', 'refunded'].includes(getOrderStatus(o))
-    );
-
-    // ── Status counts (always computed from full orders list) ──
-    const counts = {
-        all: activeOrders.length,
-        initialized: orders.filter((o) => getOrderStatus(o) === 'initialized').length,
-        processed: orders.filter((o) => getOrderStatus(o) === 'processed').length,
-        shipped: orders.filter((o) => getOrderStatus(o) === 'shipped').length,
-    };
-
-    // ── Displayed orders: filter client-side based on selected status tab ──
-    const displayedOrders = statusFilter === 'all'
-        ? activeOrders
-        : orders.filter((o) => getOrderStatus(o) === statusFilter);
+    // ── Displayed orders ──
+    // The API now returns exactly the paginated raw orders for the requested status filter.
+    // Client-side filtering is no longer necessary or appropriate.
+    const displayedOrders = orders;
 
     const getRowKey = (order) => order.items?.[0]?.id || order.id;
 
@@ -392,7 +401,7 @@ export default function ActiveOrdersPage() {
                             statusFilter === card.id ? card.color : "text-slate-400"
                         )}>{card.icon}</div>
                         <div>
-                            <span className="text-2xl font-bold text-slate-900">{isLoading ? '—' : counts[card.id]}</span>
+                            <span className="text-2xl font-bold text-slate-900">{isLoading ? '—' : (statusCounts?.[card.id] || 0)}</span>
                             <p className={cn("text-sm font-medium", statusFilter === card.id ? card.color : "text-slate-600")}>{card.label}</p>
                         </div>
                     </button>

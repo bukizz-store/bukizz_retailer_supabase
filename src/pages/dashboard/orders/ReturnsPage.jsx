@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
@@ -35,6 +35,7 @@ function formatDate(dateStr) {
 export default function ReturnsPage() {
     const { activeWarehouse } = useWarehouse();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const warehouseId = activeWarehouse?.id;
 
     // ── State ──
@@ -42,10 +43,19 @@ export default function ReturnsPage() {
     const [totalCount, setTotalCount] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(10);
+    const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
+    const [page, setPage] = useState(() => parseInt(searchParams.get('page')) || 1);
+    const [limit, setLimit] = useState(() => parseInt(searchParams.get('limit')) || 10);
     const searchTimeoutRef = useRef(null);
+
+    // ── URL Sync ──
+    useEffect(() => {
+        const p = {};
+        if (page > 1) p.page = page.toString();
+        if (limit !== 10) p.limit = limit.toString();
+        if (searchQuery) p.search = searchQuery;
+        setSearchParams(p, { replace: true });
+    }, [page, limit, searchQuery, setSearchParams]);
 
     // ── Fetch refunded orders ──
     const fetchRefundedOrders = useCallback(async () => {
