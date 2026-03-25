@@ -36,49 +36,26 @@ const useOrderStore = create((set, get) => ({
       return;
     }
 
-    const { page, limit, searchQuery, statusFilter } = get();
+    const { page, limit, searchQuery } = get();
     set({ isLoading: true, error: null });
 
     try {
-      // Fetch taking status into account, so that API handles pagination correctly.
-      const params = {
+      // Always fetch without status filter — status filtering is done client-side
+      // so that summary counts (All / New / Processed / Shipped) stay accurate.
+      const response = await orderService.getOrders(warehouseId, {
         page,
         limit,
         search: searchQuery,
-      };
-      // For 'all' we want to avoid getting 'initialized'. Assuming backend logic
-      // returns all non-initialized when status is omitted, or we just pass it as is.
-      if (statusFilter !== "all") {
-        params.status = statusFilter;
-      }
+      });
 
-      const response = await orderService.getOrders(warehouseId, params);
-
-      const responseData = response?.data || response;
-      const data = responseData?.data || responseData;
-      
-      const fetchedOrders = data?.orders || data?.items || data || [];
+      const data = response?.data || response;
+      const orders = data?.orders || data?.items || data || [];
       const totalCount =
-        data?.pagination?.total ?? 
-        data?.totalCount ?? 
-        data?.total ?? 
-        (Array.isArray(fetchedOrders) ? fetchedOrders.length : 0);
-      
-      const statusCounts = data?.statusCounts || { 
-        all: totalCount, 
-        initialized: 0, 
-        processed: 0, 
-        shipped: 0, 
-        out_for_delivery: 0, 
-        delivered: 0, 
-        cancelled: 0, 
-        refunded: 0 
-      };
+        data?.totalCount ?? data?.total ?? data?.pagination?.total ?? orders.length;
 
       set({
-        orders: Array.isArray(fetchedOrders) ? fetchedOrders : [],
+        orders: Array.isArray(orders) ? orders : [],
         totalCount,
-        statusCounts,
         isLoading: false,
       });
     } catch (error) {
