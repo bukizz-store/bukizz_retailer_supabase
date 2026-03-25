@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
@@ -70,7 +70,7 @@ function getOrderStatus(order) {
 
 export default function AllOrdersPage() {
     const {
-        orders, totalCount, statusCounts, isLoading, error,
+        orders, totalCount, isLoading, error,
         statusFilter, searchQuery, page, limit,
         fetchOrders, setStatusFilter, setSearchQuery, setPage, setLimit,
         clearError,
@@ -78,7 +78,6 @@ export default function AllOrdersPage() {
 
     const { activeWarehouse } = useWarehouse();
     const navigate = useNavigate();
-    const [searchParams, setSearchParams] = useSearchParams();
     const searchTimeoutRef = useRef(null);
 
     const warehouseId = activeWarehouse?.id;
@@ -99,36 +98,32 @@ export default function AllOrdersPage() {
         [setSearchQuery, fetchOrders, warehouseId]
     );
 
-    // ── URL Params Sync ──
-    // Load from URL on mount
-    useEffect(() => {
-        const urlPage = parseInt(searchParams.get('page')) || 1;
-        const urlStatus = searchParams.get('status') || 'all';
-        const urlSearch = searchParams.get('search') || '';
-
-        if (urlPage !== useOrderStore.getState().page) setPage(urlPage);
-        if (urlStatus !== useOrderStore.getState().statusFilter) setStatusFilter(urlStatus);
-        if (urlSearch !== useOrderStore.getState().searchQuery) setSearchQuery(urlSearch);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Save to URL on change
-    useEffect(() => {
-        const p = {};
-        if (page > 1) p.page = page.toString();
-        if (statusFilter !== 'all') p.status = statusFilter;
-        if (searchQuery) p.search = searchQuery;
-        setSearchParams(p, { replace: true });
-    }, [page, statusFilter, searchQuery, setSearchParams]);
-
     useEffect(() => {
         return () => {
             if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         };
     }, []);
 
-    // ── Displayed orders: Server already filtered these ──
-    const displayedOrders = orders;
+    // ── Exclude only 'initialized' orders ──
+    const allNonInitializedOrders = orders.filter(
+        (o) => getOrderStatus(o) !== 'initialized'
+    );
+
+    // ── Status counts ──
+    const counts = {
+        all: allNonInitializedOrders.length,
+        processed: orders.filter((o) => getOrderStatus(o) === 'processed').length,
+        shipped: orders.filter((o) => getOrderStatus(o) === 'shipped').length,
+        out_for_delivery: orders.filter((o) => getOrderStatus(o) === 'out_for_delivery').length,
+        delivered: orders.filter((o) => getOrderStatus(o) === 'delivered').length,
+        cancelled: orders.filter((o) => getOrderStatus(o) === 'cancelled').length,
+        refunded: orders.filter((o) => getOrderStatus(o) === 'refunded').length,
+    };
+
+    // ── Displayed orders: filter client-side based on selected status tab ──
+    const displayedOrders = statusFilter === 'all'
+        ? allNonInitializedOrders
+        : orders.filter((o) => getOrderStatus(o) === statusFilter);
 
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -172,7 +167,7 @@ export default function AllOrdersPage() {
                             statusFilter === card.id ? card.color : "text-slate-400"
                         )}>{card.icon}</div>
                         <div>
-                            <span className="text-2xl font-bold text-slate-900">{isLoading ? '—' : (statusCounts?.[card.id] || 0)}</span>
+                            <span className="text-2xl font-bold text-slate-900">{isLoading ? '—' : (counts[card.id] ?? 0)}</span>
                             <p className={cn("text-sm font-medium", statusFilter === card.id ? card.color : "text-slate-600")}>{card.label}</p>
                         </div>
                     </button>
@@ -243,7 +238,7 @@ export default function AllOrdersPage() {
                         <span>Items per page</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm text-slate-600">
-                        <span>Page {page} of {totalPages || 1} · {totalCount} total {statusFilter !== 'all' ? statusLabelMap[statusFilter] : ''}</span>
+                        <span>Page {page} of {totalPages || 1} · {totalCount} total</span>
                         <div className="flex gap-1">
                             <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</Button>
                             <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
