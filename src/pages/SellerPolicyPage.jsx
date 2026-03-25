@@ -190,7 +190,7 @@ export default function SellerPolicyPage() {
                     href="tel:+919369467134"
                     className="text-blue-600 hover:underline"
                   >
-                    +91 9369 467134
+                    +919369467134
                   </a>
                 </div>
               </div>

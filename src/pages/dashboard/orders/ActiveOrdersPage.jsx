@@ -11,7 +11,7 @@ import {
     Search, Download, Package, Truck,
     Clock, CheckCircle, GraduationCap, MapPin,
     Loader2, AlertCircle, RefreshCw, Printer, CheckCheck,
-    ShoppingBag,
+    ShoppingBag, Calendar, X,
 } from 'lucide-react';
 
 // ── Status config matching server enum: initialized → processed → shipped → out_for_delivery → delivered ──
@@ -78,9 +78,9 @@ function getOrderStatus(order) {
 export default function ActiveOrdersPage() {
     const {
         orders, totalCount, isLoading, isUpdatingStatus, error,
-        statusFilter, searchQuery, page, limit,
+        statusFilter, searchQuery, page, limit, startDate, endDate,
         fetchOrders, setStatusFilter, setSearchQuery, setPage, setLimit,
-        updateOrderItemStatus, clearError,
+        setDateFilter, clearDateFilter, updateOrderItemStatus, clearError,
     } = useOrderStore();
 
     const { activeWarehouse } = useWarehouse();
@@ -91,11 +91,11 @@ export default function ActiveOrdersPage() {
 
     const warehouseId = activeWarehouse?.id;
 
-    // ── Fetch orders whenever page, limit, or warehouse changes ──
+    // ── Fetch orders whenever page, limit, warehouse, or date filters change ──
     // Status filtering is done client-side so counts stay accurate.
     useEffect(() => {
         fetchOrders(warehouseId);
-    }, [page, limit, warehouseId, fetchOrders]);
+    }, [page, limit, warehouseId, startDate, endDate, fetchOrders]);
 
     // ── Debounced search ──
     const handleSearchChange = useCallback(
@@ -109,6 +109,19 @@ export default function ActiveOrdersPage() {
         },
         [setSearchQuery, fetchOrders, warehouseId]
     );
+
+    // ── Date filter handlers ──
+    const handleStartDateChange = useCallback((e) => {
+        setDateFilter(e.target.value, endDate);
+    }, [setDateFilter, endDate]);
+
+    const handleEndDateChange = useCallback((e) => {
+        setDateFilter(startDate, e.target.value);
+    }, [setDateFilter, startDate]);
+
+    const handleClearDateFilter = useCallback(() => {
+        clearDateFilter();
+    }, [clearDateFilter]);
 
     useEffect(() => {
         return () => {
@@ -226,6 +239,7 @@ export default function ActiveOrdersPage() {
                     <div class="mb-4">${addressLines}<br/></div>
                     <div class="text-bold mb-3">Order Number: ${shortenOrderId(order)}</div>
                     <div class="text-bold mb-3">Order ID: ${order.id}</div>
+                    <div class="text-bold mb-3">Order Date: ${order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</div>
                     
                     <div class="text-bold mb-2">Details:</div>
                     <table class="mb-4">
@@ -399,10 +413,40 @@ export default function ActiveOrdersPage() {
                 ))}
             </div>
 
-            {/* Search */}
-            <div className="flex-1 max-w-md">
-                <Input placeholder="Search by order ID or customer..." value={searchQuery}
-                    onChange={handleSearchChange} icon={<Search className="h-5 w-5" />} />
+            {/* Search & Date Filter */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <div className="flex-1 max-w-md">
+                    <Input placeholder="Search by order ID or customer..." value={searchQuery}
+                        onChange={handleSearchChange} icon={<Search className="h-5 w-5" />} />
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <Calendar className="h-4 w-4 text-slate-400" />
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={handleStartDateChange}
+                            className="text-sm border-none outline-none bg-transparent"
+                            placeholder="From"
+                        />
+                        <span className="text-slate-400">to</span>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={handleEndDateChange}
+                            className="text-sm border-none outline-none bg-transparent"
+                        />
+                        {(startDate || endDate) && (
+                            <button
+                                onClick={handleClearDateFilter}
+                                className="ml-1 p-0.5 rounded hover:bg-slate-100"
+                                title="Clear date filter"
+                            >
+                                <X className="h-4 w-4 text-slate-400" />
+                            </button>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Bulk Actions */}
