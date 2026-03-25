@@ -8,7 +8,7 @@ export const orderService = {
    */
   getOrders: async (
     warehouseId,
-    { page = 1, limit = 10, status = "", search = "" } = {},
+    { page = 1, limit = 10, status = "", search = "", startDate = "", endDate = "" } = {},
   ) => {
     if (!warehouseId)
       throw new Error("Warehouse ID is required to fetch orders.");
@@ -16,6 +16,8 @@ export const orderService = {
     const params = { page, limit };
     if (status && status !== "all") params.status = status;
     if (search) params.search = search;
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
 
     const response = await apiClient.get(
       `/retailer/orders/warehouse/${warehouseId}`,

@@ -18,6 +18,8 @@ const useOrderStore = create((set, get) => ({
   limit: 50,
   statusFilter: "all",
   searchQuery: "",
+  startDate: "",
+  endDate: "",
 
   // ── Loading / Error States ──────────────────────────────────
   isLoading: false,
@@ -36,7 +38,7 @@ const useOrderStore = create((set, get) => ({
       return;
     }
 
-    const { page, limit, searchQuery } = get();
+    const { page, limit, searchQuery, startDate, endDate } = get();
     set({ isLoading: true, error: null });
 
     try {
@@ -46,6 +48,8 @@ const useOrderStore = create((set, get) => ({
         page,
         limit,
         search: searchQuery,
+        startDate,
+        endDate,
       });
 
       const data = response?.data || response;
@@ -127,6 +131,14 @@ const useOrderStore = create((set, get) => ({
 
   setSearchQuery: (query) => {
     set({ searchQuery: query, page: 1 });
+  },
+
+  setDateFilter: (startDate, endDate) => {
+    set({ startDate, endDate, page: 1 });
+  },
+
+  clearDateFilter: () => {
+    set({ startDate: "", endDate: "", page: 1 });
   },
 
   setPage: (page) => {

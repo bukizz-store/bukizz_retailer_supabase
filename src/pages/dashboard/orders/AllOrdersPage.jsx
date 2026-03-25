@@ -11,7 +11,7 @@ import {
     Search, Download, Package, Truck,
     Clock, CheckCircle, GraduationCap, MapPin,
     Loader2, AlertCircle, RefreshCw, Printer, CheckCheck,
-    ShoppingBag, RotateCcw, XCircle,
+    ShoppingBag, RotateCcw, XCircle, Calendar, X,
 } from 'lucide-react';
 
 // ── Status config ──
@@ -71,9 +71,9 @@ function getOrderStatus(order) {
 export default function AllOrdersPage() {
     const {
         orders, totalCount, isLoading, error,
-        statusFilter, searchQuery, page, limit,
+        statusFilter, searchQuery, page, limit, startDate, endDate,
         fetchOrders, setStatusFilter, setSearchQuery, setPage, setLimit,
-        clearError,
+        setDateFilter, clearDateFilter, clearError,
     } = useOrderStore();
 
     const { activeWarehouse } = useWarehouse();
@@ -84,7 +84,7 @@ export default function AllOrdersPage() {
 
     useEffect(() => {
         fetchOrders(warehouseId);
-    }, [page, limit, warehouseId, fetchOrders]);
+    }, [page, limit, warehouseId, startDate, endDate, fetchOrders]);
 
     const handleSearchChange = useCallback(
         (e) => {
@@ -97,6 +97,19 @@ export default function AllOrdersPage() {
         },
         [setSearchQuery, fetchOrders, warehouseId]
     );
+
+    // ── Date filter handlers ──
+    const handleStartDateChange = useCallback((e) => {
+        setDateFilter(e.target.value, endDate);
+    }, [setDateFilter, endDate]);
+
+    const handleEndDateChange = useCallback((e) => {
+        setDateFilter(startDate, e.target.value);
+    }, [setDateFilter, startDate]);
+
+    const handleClearDateFilter = useCallback(() => {
+        clearDateFilter();
+    }, [clearDateFilter]);
 
     useEffect(() => {
         return () => {
@@ -174,10 +187,40 @@ export default function AllOrdersPage() {
                 ))}
             </div>
 
-            {/* Search */}
-            <div className="flex-1 max-w-md">
-                <Input placeholder="Search by order ID or customer..." value={searchQuery}
-                    onChange={handleSearchChange} icon={<Search className="h-5 w-5" />} />
+            {/* Search & Date Filter */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <div className="flex-1 max-w-md">
+                    <Input placeholder="Search by order ID or customer..." value={searchQuery}
+                        onChange={handleSearchChange} icon={<Search className="h-5 w-5" />} />
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <Calendar className="h-4 w-4 text-slate-400" />
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={handleStartDateChange}
+                            className="text-sm border-none outline-none bg-transparent"
+                            placeholder="From"
+                        />
+                        <span className="text-slate-400">to</span>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={handleEndDateChange}
+                            className="text-sm border-none outline-none bg-transparent"
+                        />
+                        {(startDate || endDate) && (
+                            <button
+                                onClick={handleClearDateFilter}
+                                className="ml-1 p-0.5 rounded hover:bg-slate-100"
+                                title="Clear date filter"
+                            >
+                                <X className="h-4 w-4 text-slate-400" />
+                            </button>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Orders Table */}

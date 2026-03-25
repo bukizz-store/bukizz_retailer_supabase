@@ -293,6 +293,7 @@ export default function OrderViewPage() {
                 <div class="mb-4">${addressLines}<br/></div>
                 <div class="text-bold mb-3">Order Number: ${shortenOrderId(order)}</div>
                 <div class="text-bold mb-3">Order ID: ${order.id}</div>
+                <div class="text-bold mb-3">Order Date: ${order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</div>
                 
                 <div class="text-bold mb-2">Details:</div>
                 <table class="mb-4">
