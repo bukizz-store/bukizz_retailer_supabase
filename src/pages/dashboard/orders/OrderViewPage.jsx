@@ -319,7 +319,7 @@ export default function OrderViewPage() {
                                     }
                                   });
                                 }
-                                const variantStr = variantParts.join(', ') || item.variantDetail || item.productSnapshot?.variantName || "";
+                                const variantStr = variantParts.join(', ') || item.variantDetail || item.productSnapshot?.variantName || item.sku || "";
                                 
                                 return `
                         <tr>
