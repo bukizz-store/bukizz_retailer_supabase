@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
@@ -78,9 +78,8 @@ function getOrderStatus(order) {
 export default function ActiveOrdersPage() {
     const {
         orders, totalCount, isLoading, isUpdatingStatus, error,
-        statusFilter, searchQuery, page, limit, startDate, endDate,
-        fetchOrders, setStatusFilter, setSearchQuery, setPage, setLimit,
-        setDateFilter, clearDateFilter, updateOrderItemStatus, clearError,
+        statusCounts,
+        fetchOrders, updateOrderItemStatus, clearError,
     } = useOrderStore();
 
     const { activeWarehouse } = useWarehouse();
@@ -88,36 +87,62 @@ export default function ActiveOrdersPage() {
     const navigate = useNavigate();
     const [selectedOrders, setSelectedOrders] = useState([]);
     const searchTimeoutRef = useRef(null);
+    const [localSearch, setLocalSearch] = useState('');
+
+    // ── URL-based state for page, limit, status ──
+    const [searchParams, setSearchParams] = useSearchParams();
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const statusFilter = searchParams.get('status') || 'all';
+    const searchQuery = searchParams.get('search') || '';
+    const startDate = searchParams.get('startDate') || '';
+    const endDate = searchParams.get('endDate') || '';
 
     const warehouseId = activeWarehouse?.id;
 
-    // ── Fetch orders whenever page, limit, warehouse, or date filters change ──
-    // Status filtering is done client-side so counts stay accurate.
+    // ── Helpers to update URL params ──
+    const setPage = (p) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(p)); return n; });
+    const setLimit = (l) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('limit', String(l)); n.set('page', '1'); return n; });
+    const setStatusFilter = (s) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('status', s); n.set('page', '1'); return n; });
+    const setDateFilter = (s, e) => setSearchParams(prev => { const n = new URLSearchParams(prev); if (s) n.set('startDate', s); else n.delete('startDate'); if (e) n.set('endDate', e); else n.delete('endDate'); n.set('page', '1'); return n; });
+    const clearDateFilter = () => setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('startDate'); n.delete('endDate'); n.set('page', '1'); return n; });
+
+    // ── Determine the actual API status to send ──
+    // For Active Orders page: 'all' tab → send 'active' to backend (processed+shipped+ofd)
+    // Specific tab → send that specific status
+    const apiStatus = statusFilter === 'all' ? 'active' : statusFilter;
+
+    // ── Fetch orders whenever any param changes ──
     useEffect(() => {
-        fetchOrders(warehouseId);
-    }, [page, limit, warehouseId, startDate, endDate, fetchOrders]);
+        fetchOrders(warehouseId, { page, limit, status: apiStatus, search: searchQuery, startDate, endDate });
+    }, [page, limit, warehouseId, startDate, endDate, apiStatus, searchQuery, fetchOrders]);
 
     // ── Debounced search ──
     const handleSearchChange = useCallback(
         (e) => {
             const value = e.target.value;
-            setSearchQuery(value);
+            setLocalSearch(value);
             if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
             searchTimeoutRef.current = setTimeout(() => {
-                fetchOrders(warehouseId);
+                setSearchParams(prev => {
+                    const n = new URLSearchParams(prev);
+                    if (value) n.set('search', value); else n.delete('search');
+                    n.set('page', '1');
+                    return n;
+                });
             }, 400);
         },
-        [setSearchQuery, fetchOrders, warehouseId]
+        [setSearchParams]
     );
 
     // ── Date filter handlers ──
     const handleStartDateChange = useCallback((e) => {
         setDateFilter(e.target.value, endDate);
-    }, [setDateFilter, endDate]);
+    }, [endDate, setDateFilter]);
 
     const handleEndDateChange = useCallback((e) => {
         setDateFilter(startDate, e.target.value);
-    }, [setDateFilter, startDate]);
+    }, [startDate, setDateFilter]);
 
     const handleClearDateFilter = useCallback(() => {
         clearDateFilter();
@@ -129,23 +154,21 @@ export default function ActiveOrdersPage() {
         };
     }, []);
 
-    // ── Active (non-terminal) orders — exclude delivered/cancelled/refunded ──
-    const activeOrders = orders.filter(
-        (o) => !['delivered', 'cancelled', 'refunded'].includes(getOrderStatus(o))
-    );
+    // Sync local search input with URL on mount
+    useEffect(() => {
+        setLocalSearch(searchQuery);
+    }, [searchQuery]);
 
-    // ── Status counts (always computed from full orders list) ──
+    // ── Status counts from API — compute active-only totals ──
     const counts = {
-        all: activeOrders.length,
-        initialized: orders.filter((o) => getOrderStatus(o) === 'initialized').length,
-        processed: orders.filter((o) => getOrderStatus(o) === 'processed').length,
-        shipped: orders.filter((o) => getOrderStatus(o) === 'shipped').length,
+        all: (statusCounts?.processed ?? 0) + (statusCounts?.shipped ?? 0) + (statusCounts?.out_for_delivery ?? 0),
+        initialized: statusCounts?.initialized ?? 0,
+        processed: statusCounts?.processed ?? 0,
+        shipped: statusCounts?.shipped ?? 0,
     };
 
-    // ── Displayed orders: filter client-side based on selected status tab ──
-    const displayedOrders = statusFilter === 'all'
-        ? activeOrders
-        : orders.filter((o) => getOrderStatus(o) === statusFilter);
+    // ── Displayed orders: server already filtered, use directly ──
+    const displayedOrders = orders;
 
     const getRowKey = (order) => order.items?.[0]?.id || order.id;
 
@@ -416,7 +439,7 @@ export default function ActiveOrdersPage() {
             {/* Search & Date Filter */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 <div className="flex-1 max-w-md">
-                    <Input placeholder="Search by order ID or customer..." value={searchQuery}
+                    <Input placeholder="Search by order ID or customer..." value={localSearch}
                         onChange={handleSearchChange} icon={<Search className="h-5 w-5" />} />
                 </div>
                 <div className="flex items-center gap-2">
@@ -527,9 +550,8 @@ export default function ActiveOrdersPage() {
                     <div className="flex items-center gap-2 text-sm text-slate-600">
                         <select className="rounded border border-slate-300 bg-white px-2 py-1 text-sm"
                             value={limit} onChange={(e) => setLimit(Number(e.target.value))}>
-                            <option value={10}>10</option>
-                            <option value={25}>25</option>
                             <option value={50}>50</option>
+                            <option value={100}>100</option>
                         </select>
                         <span>Items per page</span>
                     </div>

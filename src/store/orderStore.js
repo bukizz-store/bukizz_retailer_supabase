@@ -4,22 +4,16 @@ import { orderService } from "@/services/orderService";
 /**
  * Zustand store for order management in the retailer dashboard.
  *
- * Handles fetching, filtering, status updates, and error states
- * for orders tied to the active warehouse.
+ * Holds fetched data and loading/error states.
+ * Page, limit, status, and search are managed by each page via URL search params.
  */
 const useOrderStore = create((set, get) => ({
   // ── Data ────────────────────────────────────────────────────
   orders: [],
   totalCount: 0,
+  statusCounts: null,
+  summary: null,
   statistics: null,
-
-  // ── Filters & Pagination ────────────────────────────────────
-  page: 1,
-  limit: 50,
-  statusFilter: "all",
-  searchQuery: "",
-  startDate: "",
-  endDate: "",
 
   // ── Loading / Error States ──────────────────────────────────
   isLoading: false,
@@ -29,25 +23,25 @@ const useOrderStore = create((set, get) => ({
   // ── Actions ─────────────────────────────────────────────────
 
   /**
-   * Fetch orders from the API based on current filters.
+   * Fetch orders from the API.
    * @param {string} warehouseId — active warehouse UUID (required)
+   * @param {object} params — { page, limit, status, search, startDate, endDate }
    */
-  fetchOrders: async (warehouseId) => {
+  fetchOrders: async (warehouseId, params = {}) => {
     if (!warehouseId) {
-      set({ orders: [], totalCount: 0, isLoading: false });
+      set({ orders: [], totalCount: 0, statusCounts: null, summary: null, isLoading: false });
       return;
     }
 
-    const { page, limit, searchQuery, startDate, endDate } = get();
+    const { page = 1, limit = 50, status, search, startDate, endDate } = params;
     set({ isLoading: true, error: null });
 
     try {
-      // Always fetch without status filter — status filtering is done client-side
-      // so that summary counts (All / New / Processed / Shipped) stay accurate.
       const response = await orderService.getOrders(warehouseId, {
         page,
         limit,
-        search: searchQuery,
+        status,
+        search,
         startDate,
         endDate,
       });
@@ -56,10 +50,14 @@ const useOrderStore = create((set, get) => ({
       const orders = data?.orders || data?.items || data || [];
       const totalCount =
         data?.totalCount ?? data?.total ?? data?.pagination?.total ?? orders.length;
+      const statusCounts = data?.statusCounts || null;
+      const summary = data?.summary || null;
 
       set({
         orders: Array.isArray(orders) ? orders : [],
         totalCount,
+        statusCounts,
+        summary,
         isLoading: false,
       });
     } catch (error) {
@@ -121,32 +119,6 @@ const useOrderStore = create((set, get) => ({
     } catch {
       // Statistics are non-critical; silently fail
     }
-  },
-
-  // ── Setters ─────────────────────────────────────────────────
-
-  setStatusFilter: (status) => {
-    set({ statusFilter: status, page: 1 });
-  },
-
-  setSearchQuery: (query) => {
-    set({ searchQuery: query, page: 1 });
-  },
-
-  setDateFilter: (startDate, endDate) => {
-    set({ startDate, endDate, page: 1 });
-  },
-
-  clearDateFilter: () => {
-    set({ startDate: "", endDate: "", page: 1 });
-  },
-
-  setPage: (page) => {
-    set({ page });
-  },
-
-  setLimit: (limit) => {
-    set({ limit, page: 1 });
   },
 
   clearError: () => {

@@ -8,7 +8,7 @@ export const orderService = {
    */
   getOrders: async (
     warehouseId,
-    { page = 1, limit = 10, status = "", search = "", startDate = "", endDate = "" } = {},
+    { page = 1, limit = 50, status = "", search = "", startDate = "", endDate = "" } = {},
   ) => {
     if (!warehouseId)
       throw new Error("Warehouse ID is required to fetch orders.");
