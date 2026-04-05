@@ -230,12 +230,12 @@ export default function ActiveOrdersPage() {
                     if (opt.attribute?.name) {
                         variantParts.push(`${opt.attribute.name}: ${opt.value}`);
                     } else if (opt.value) {
-                        variantParts.push(opt.value);
+                        variantParts.push(opt.sku);
                     }
                 });
             }
             const variantInfo = variantParts.join(', ');
-            return variantInfo || item.variantDetail || item.productSnapshot?.variantName || "";
+            return variantInfo || item.variantDetail || item.productSnapshot?.variantName || item.sku || '';
         };
         
         
@@ -630,7 +630,7 @@ function OrderRow({ order, isSelected, onToggleSelect, onConfirm, onPrintLabel, 
                                         }
                                     });
                                 }
-                                const variantInfo = variantParts.join(', ') || item.variantDetail || item.productSnapshot?.variantName;
+                                const variantInfo = variantParts.join(', ') || item.variantDetail || item.productSnapshot?.variantName || item.sku;
                                 return variantInfo ? (
                                     <p className="text-xs text-slate-500 font-medium">{variantInfo}</p>
                                 ) : null;
