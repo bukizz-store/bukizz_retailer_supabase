@@ -137,11 +137,11 @@ export const orderService = {
   },
 
   /**
-   * GET /retailer/orders/warehouse/:warehouseId/filter-options/students
+   * GET /retailer/orders/warehouse/:warehouseId/filter-options/statuses
    */
-  getFilterStudents: async (warehouseId) => {
+  getFilterStatuses: async (warehouseId) => {
     const response = await apiClient.get(
-      `/retailer/orders/warehouse/${warehouseId}/filter-options/students`,
+      `/retailer/orders/warehouse/${warehouseId}/filter-options/statuses`,
     );
     return response.data;
   },

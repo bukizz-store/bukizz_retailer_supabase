@@ -178,17 +178,17 @@ export default function AllOrdersPage() {
     const [productType, setProductType] = useState('all');
     const [selectedSchools, setSelectedSchools] = useState([]);
     const [selectedProducts, setSelectedProducts] = useState([]);
-    const [selectedStudents, setSelectedStudents] = useState([]);
+    const [selectedStatuses, setSelectedStatuses] = useState([]);
 
     // "Applied" state — what's actually sent to the API
     const [appliedFilters, setAppliedFilters] = useState({
-        productType: 'all', schoolIds: [], productIds: [], studentNames: [],
+        productType: 'all', schoolIds: [], productIds: [], statusList: [],
     });
 
     // Filter option data
     const [schoolOptions, setSchoolOptions] = useState([]);
     const [productOptions, setProductOptions] = useState([]);
-    const [studentOptions, setStudentOptions] = useState([]);
+    const [statusOptions, setStatusOptions] = useState([]);
     const [optionsLoading, setOptionsLoading] = useState(false);
 
     // ── Restore from localStorage on mount ──
@@ -198,14 +198,14 @@ export default function AllOrdersPage() {
             setProductType(saved.productType || 'all');
             setSelectedSchools(saved.schoolIds || []);
             setSelectedProducts(saved.productIds || []);
-            setSelectedStudents(saved.studentNames || []);
+            setSelectedStatuses(saved.statusList || []);
             setAppliedFilters({
                 productType: saved.productType || 'all',
                 schoolIds: saved.schoolIds || [],
                 productIds: saved.productIds || [],
-                studentNames: saved.studentNames || [],
+                statusList: saved.statusList || [],
             });
-            if (saved.productType !== 'all' || (saved.schoolIds?.length || 0) > 0 || (saved.productIds?.length || 0) > 0 || (saved.studentNames?.length || 0) > 0) {
+            if (saved.productType !== 'all' || (saved.schoolIds?.length || 0) > 0 || (saved.productIds?.length || 0) > 0 || (saved.statusList?.length || 0) > 0) {
                 setShowFilters(true);
             }
         }
@@ -218,7 +218,7 @@ export default function AllOrdersPage() {
         Promise.all([
             orderService.getFilterSchools(warehouseId).then(r => setSchoolOptions(r?.data || [])),
             orderService.getFilterProducts(warehouseId, selectedSchools).then(r => setProductOptions(r?.data || [])),
-            orderService.getFilterStudents(warehouseId).then(r => setStudentOptions(r?.data || [])),
+            orderService.getFilterStatuses(warehouseId).then(r => setStatusOptions(r?.data || [])),
         ]).finally(() => setOptionsLoading(false));
     }, [showFilters, warehouseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -265,7 +265,7 @@ export default function AllOrdersPage() {
         productType: appliedFilters.productType,
         schoolIds: appliedFilters.schoolIds,
         productIds: appliedFilters.productIds,
-        studentNames: appliedFilters.studentNames,
+        statusList: appliedFilters.statusList,
     }), [page, limit, statusFilter, searchQuery, startDate, endDate, appliedFilters]);
 
     useEffect(() => {
@@ -301,7 +301,7 @@ export default function AllOrdersPage() {
             productType,
             schoolIds: selectedSchools,
             productIds: selectedProducts,
-            studentNames: selectedStudents,
+            statusList: selectedStatuses,
         };
         setAppliedFilters(filters);
         saveFiltersToStorage(filters);
@@ -312,20 +312,20 @@ export default function AllOrdersPage() {
         setProductType('all');
         setSelectedSchools([]);
         setSelectedProducts([]);
-        setSelectedStudents([]);
-        const cleared = { productType: 'all', schoolIds: [], productIds: [], studentNames: [] };
+        setSelectedStatuses([]);
+        const cleared = { productType: 'all', schoolIds: [], productIds: [], statusList: [] };
         setAppliedFilters(cleared);
         clearFiltersFromStorage();
         setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', '1'); return n; });
     };
 
     const hasActiveFilters = appliedFilters.productType !== 'all' || appliedFilters.schoolIds.length > 0 ||
-        appliedFilters.productIds.length > 0 || appliedFilters.studentNames.length > 0;
+        appliedFilters.productIds.length > 0 || appliedFilters.statusList.length > 0;
 
     const hasUnappliedChanges = productType !== appliedFilters.productType ||
         JSON.stringify(selectedSchools) !== JSON.stringify(appliedFilters.schoolIds) ||
         JSON.stringify(selectedProducts) !== JSON.stringify(appliedFilters.productIds) ||
-        JSON.stringify(selectedStudents) !== JSON.stringify(appliedFilters.studentNames);
+        JSON.stringify(selectedStatuses) !== JSON.stringify(appliedFilters.statusList);
 
     // ── Status counts from API ──
     const counts = {
@@ -345,7 +345,7 @@ export default function AllOrdersPage() {
     // ── Filter options for MultiSelect ──
     const schoolOpts = useMemo(() => schoolOptions.map(s => ({ value: s.id, label: s.name })), [schoolOptions]);
     const productOpts = useMemo(() => productOptions.map(p => ({ value: p.id, label: p.title })), [productOptions]);
-    const studentOpts = useMemo(() => studentOptions.map(s => ({ value: s.studentName, label: s.studentName, subtext: s.userName })), [studentOptions]);
+    const statusOpts = useMemo(() => statusOptions.map(s => ({ value: s, label: statusLabelMap[s] || s })), [statusOptions]);
 
     const showSchoolProductFilters = productType !== 'general';
 
@@ -422,266 +422,396 @@ export default function AllOrdersPage() {
     }, [displayedOrders]);
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            {/* Header */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">All Orders</h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        View all orders for{' '}
-                        <span className="font-medium text-slate-700">{activeWarehouse?.name || 'your warehouse'}</span>
-                    </p>
-                </div>
-                <div className="flex gap-3">
-                    <Button variant="outline" size="sm"
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={cn(hasActiveFilters && "border-blue-400 text-blue-600")}
-                    >
-                        <Filter className="h-4 w-4" />
-                        Filters
-                        {hasActiveFilters && <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">!</span>}
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => { const body = buildPostBody(); fetchFilteredOrders(warehouseId, body); }} disabled={isLoading}>
-                        <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />Refresh
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={exportToExcel} disabled={isLoading || displayedOrders.length === 0}>
-                        <Download className="h-4 w-4" />Export
-                    </Button>
-                </div>
-            </div>
-
-            {/* Error Banner */}
-            {error && (
-                <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-                    <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
-                    <p className="text-sm text-red-700 flex-1">{error}</p>
-                    <Button variant="ghost" size="sm" onClick={clearError} className="text-red-600 hover:text-red-700">Dismiss</Button>
-                </div>
-            )}
-
-            {/* ── Advanced Filter Panel ── */}
-            {showFilters && (
-                <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-5 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                            <Filter className="h-4 w-4" /> Advanced Filters
-                        </h3>
-                        <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={handleResetFilters}
-                                className="text-slate-600 hover:text-red-600" disabled={!hasActiveFilters && !hasUnappliedChanges}>
-                                <RotateCw className="h-4 w-4" /> Reset
-                            </Button>
-                            <Button size="sm" onClick={handleApplyFilters}
-                                className={cn("transition", hasUnappliedChanges ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-slate-200 text-slate-500")}
-                                disabled={!hasUnappliedChanges}>
-                                <Check className="h-4 w-4" /> Apply
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {/* Product Type (single select) */}
-                        <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Product Type</label>
-                            <select
-                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                                value={productType}
-                                onChange={(e) => setProductType(e.target.value)}
-                            >
-                                <option value="all">All</option>
-                                <option value="school">School</option>
-                                <option value="general">General</option>
-                            </select>
-                        </div>
-
-                        {/* School filter (multiselect) — hidden for "general" */}
-                        {showSchoolProductFilters && (
-                            <div>
-                                <label className="text-xs font-medium text-slate-500 mb-1 block">School</label>
-                                <MultiSelect
-                                    options={schoolOpts}
-                                    selected={selectedSchools}
-                                    onChange={setSelectedSchools}
-                                    placeholder="All Schools"
-                                    disabled={optionsLoading}
-                                />
-                            </div>
-                        )}
-
-                        {/* Product filter (multiselect, cascaded by school) — hidden for "general" */}
-                        {showSchoolProductFilters && (
-                            <div>
-                                <label className="text-xs font-medium text-slate-500 mb-1 block">Product / Class</label>
-                                <MultiSelect
-                                    options={productOpts}
-                                    selected={selectedProducts}
-                                    onChange={setSelectedProducts}
-                                    placeholder="All Products"
-                                    disabled={optionsLoading}
-                                />
-                            </div>
-                        )}
-
-                        {/* Student Name filter (multiselect) */}
-                        <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Student Name</label>
-                            <MultiSelect
-                                options={studentOpts}
-                                selected={selectedStudents}
-                                onChange={setSelectedStudents}
-                                placeholder="All Students"
-                                disabled={optionsLoading}
-                                renderOption={(opt) => (
-                                    <div>
-                                        <span className="text-slate-900">{opt.label}</span>
-                                        {opt.subtext && <span className="ml-2 text-xs text-slate-400">{opt.subtext}</span>}
-                                    </div>
-                                )}
-                            />
-                        </div>
-                    </div>
-
-                    {hasActiveFilters && (
-                        <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
-                            <span className="text-xs text-slate-500">Active:</span>
-                            {appliedFilters.productType !== 'all' && (
-                                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
-                                    Type: {appliedFilters.productType}
-                                </span>
-                            )}
-                            {appliedFilters.schoolIds.length > 0 && (
-                                <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">
-                                    {appliedFilters.schoolIds.length} school(s)
-                                </span>
-                            )}
-                            {appliedFilters.productIds.length > 0 && (
-                                <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-                                    {appliedFilters.productIds.length} product(s)
-                                </span>
-                            )}
-                            {appliedFilters.studentNames.length > 0 && (
-                                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
-                                    {appliedFilters.studentNames.length} student(s)
-                                </span>
-                            )}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* Status Filter Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {statusCards.map((card) => (
-                    <button key={card.id} onClick={() => setStatusFilter(card.id)}
-                        className={cn("relative flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all hover:shadow-md",
-                            statusFilter === card.id ? `${card.bgColor} ${card.borderColor} shadow-md` : "bg-white border-slate-200"
-                        )}>
-                        <div className={cn("flex h-12 w-12 items-center justify-center rounded-lg",
-                            statusFilter === card.id ? card.bgColor : "bg-slate-100",
-                            statusFilter === card.id ? card.color : "text-slate-400"
-                        )}>{card.icon}</div>
-                        <div>
-                            <span className="text-2xl font-bold text-slate-900">{isLoading ? '—' : (counts[card.id] ?? 0)}</span>
-                            <p className={cn("text-sm font-medium", statusFilter === card.id ? card.color : "text-slate-600")}>{card.label}</p>
-                        </div>
-                    </button>
-                ))}
-            </div>
-
-            {/* Search & Date Filter */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <div className="flex-1 max-w-md">
-                    <Input placeholder="Search by order ID, dispatch ID, student or user name..."
-                        value={localSearch} onChange={handleSearchChange}
-                        icon={<Search className="h-5 w-5" />}
-                    />
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                        <Calendar className="h-4 w-4 text-slate-400" />
-                        <input type="date" value={startDate} onChange={handleStartDateChange}
-                            className="text-sm border-none outline-none bg-transparent" placeholder="From" />
-                        <span className="text-slate-400">to</span>
-                        <input type="date" value={endDate} onChange={handleEndDateChange}
-                            className="text-sm border-none outline-none bg-transparent" />
-                        {(startDate || endDate) && (
-                            <button onClick={() => clearDateFilter()} className="ml-1 p-0.5 rounded hover:bg-slate-100" title="Clear date filter">
-                                <X className="h-4 w-4 text-slate-400" />
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Orders Table */}
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-slate-200 bg-slate-50">
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Order ID</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Order Details</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Date &amp; Time</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Student / Customer</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-slate-900">Amount</th>
-                                <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">Qty</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900" style={{ minWidth: '140px' }}>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {isLoading ? (
-                                <tr>
-                                    <td colSpan={7} className="py-16 text-center">
-                                        <Loader2 className="mx-auto mb-3 h-8 w-8 text-blue-500 animate-spin" />
-                                        <p className="text-sm text-slate-500">Loading orders…</p>
-                                    </td>
-                                </tr>
-                            ) : displayedOrders.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="py-16 text-center">
-                                        <Package className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-                                        <p className="text-lg font-medium text-slate-600">No orders found</p>
-                                        <p className="mt-1 text-sm text-slate-400">
-                                            {searchQuery ? 'Try adjusting your search query' : hasActiveFilters ? 'Try changing filter options' : 'Confirmed orders will appear here'}
-                                        </p>
-                                    </td>
-                                </tr>
-                            ) : (
-                                displayedOrders.map((order, idx) => (
-                                    <AllOrderRow
-                                        key={`${order.id}-${order.items?.[0]?.id || idx}`}
-                                        order={order}
-                                        onViewOrder={() => navigate(`/dashboard/orders/${order.items?.[0]?.id || order.id}`)}
-                                    />
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination */}
-                <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4">
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <select className="rounded border border-slate-300 bg-white px-2 py-1 text-sm"
-                            value={limitParam} onChange={(e) => setLimit(e.target.value)}>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                            <option value="150">150</option>
-                            <option value="200">200</option>
-                            <option value="all">All</option>
-                        </select>
-                        <span>Items per page</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-slate-600">
-                        <span>Page {page} of {totalPages} · {totalCount} total</span>
-                        <div className="flex gap-1">
-                            <Button variant="outline" size="sm" disabled={page <= 1 || limit === 'all'} onClick={() => setPage(page - 1)}>Prev</Button>
-                            <Button variant="outline" size="sm" disabled={page >= totalPages || limit === 'all'} onClick={() => setPage(page + 1)}>Next</Button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <div className="space-y-6 animate-fade-in">
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">All Orders</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              View all orders for{" "}
+              <span className="font-medium text-slate-700">
+                {activeWarehouse?.name || "your warehouse"}
+              </span>
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn(
+                hasActiveFilters && "border-blue-400 text-blue-600",
+              )}
+            >
+              <Filter className="h-4 w-4" />
+              Advanced Filters
+              {hasActiveFilters && (
+                <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">
+                  !
+                </span>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const body = buildPostBody();
+                fetchFilteredOrders(warehouseId, body);
+              }}
+              disabled={isLoading}
+            >
+              <RefreshCw
+                className={cn("h-4 w-4", isLoading && "animate-spin")}
+              />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportToExcel}
+              disabled={isLoading || displayedOrders.length === 0}
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          </div>
         </div>
+
+        {/* Error Banner */}
+        {error && (
+          <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+            <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
+            <p className="text-sm text-red-700 flex-1">{error}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearError}
+              className="text-red-600 hover:text-red-700"
+            >
+              Dismiss
+            </Button>
+          </div>
+        )}
+
+        {/* ── Advanced Filter Panel ── */}
+        {showFilters && (
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Filter className="h-4 w-4" /> Advanced Filters
+              </h3>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetFilters}
+                  className="text-slate-600 hover:text-red-600"
+                  disabled={!hasActiveFilters && !hasUnappliedChanges}
+                >
+                  <RotateCw className="h-4 w-4" /> Reset
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleApplyFilters}
+                  className={cn(
+                    "transition",
+                    hasUnappliedChanges
+                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-slate-200 text-slate-500",
+                  )}
+                  disabled={!hasUnappliedChanges}
+                >
+                  <Check className="h-4 w-4" /> Apply
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Product Type (single select) */}
+              <div>
+                <label className="text-xs font-medium text-slate-500 mb-1 block">
+                  Product Type
+                </label>
+                <select
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  value={productType}
+                  onChange={(e) => setProductType(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  <option value="school">My School</option>
+                  <option value="general">General Store</option>
+                </select>
+              </div>
+
+              {/* School filter (multiselect) — hidden for "general" */}
+              {showSchoolProductFilters && (
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1 block">
+                    School
+                  </label>
+                  <MultiSelect
+                    options={schoolOpts}
+                    selected={selectedSchools}
+                    onChange={setSelectedSchools}
+                    placeholder="All Schools"
+                    disabled={optionsLoading}
+                  />
+                </div>
+              )}
+
+              {/* Product filter (multiselect, cascaded by school) — hidden for "general" */}
+              {showSchoolProductFilters && (
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1 block">
+                    Product / Class
+                  </label>
+                  <MultiSelect
+                    options={productOpts}
+                    selected={selectedProducts}
+                    onChange={setSelectedProducts}
+                    placeholder="All Products"
+                    disabled={optionsLoading}
+                  />
+                </div>
+              )}
+
+              {/* Status filter (multiselect) */}
+              <div>
+                <label className="text-xs font-medium text-slate-500 mb-1 block">
+                  Status
+                </label>
+                <MultiSelect
+                  options={statusOpts}
+                  selected={selectedStatuses}
+                  onChange={setSelectedStatuses}
+                  placeholder="All Statuses"
+                  disabled={optionsLoading}
+                />
+              </div>
+            </div>
+
+            {hasActiveFilters && (
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+                <span className="text-xs text-slate-500">Active:</span>
+                {appliedFilters.productType !== "all" && (
+                  <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                    Type: {appliedFilters.productType}
+                  </span>
+                )}
+                {appliedFilters.schoolIds.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">
+                    {appliedFilters.schoolIds.length} school(s)
+                  </span>
+                )}
+                {appliedFilters.productIds.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                    {appliedFilters.productIds.length} product(s)
+                  </span>
+                )}
+                {appliedFilters.statusList.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+                    {appliedFilters.statusList.length} status(es)
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Status Filter Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {statusCards.map((card) => (
+            <button
+              key={card.id}
+              onClick={() => setStatusFilter(card.id)}
+              className={cn(
+                "relative flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all hover:shadow-md",
+                statusFilter === card.id
+                  ? `${card.bgColor} ${card.borderColor} shadow-md`
+                  : "bg-white border-slate-200",
+              )}
+            >
+              <div
+                className={cn(
+                  "flex h-12 w-12 items-center justify-center rounded-lg",
+                  statusFilter === card.id ? card.bgColor : "bg-slate-100",
+                  statusFilter === card.id ? card.color : "text-slate-400",
+                )}
+              >
+                {card.icon}
+              </div>
+              <div>
+                <span className="text-2xl font-bold text-slate-900">
+                  {isLoading ? "—" : (counts[card.id] ?? 0)}
+                </span>
+                <p
+                  className={cn(
+                    "text-sm font-medium",
+                    statusFilter === card.id ? card.color : "text-slate-600",
+                  )}
+                >
+                  {card.label}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Search & Date Filter */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex-1 max-w-md">
+            <Input
+              placeholder="Search by order ID, dispatch ID, student or user name..."
+              value={localSearch}
+              onChange={handleSearchChange}
+              icon={<Search className="h-5 w-5" />}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+              <Calendar className="h-4 w-4 text-slate-400" />
+              <input
+                type="date"
+                value={startDate}
+                onChange={handleStartDateChange}
+                className="text-sm border-none outline-none bg-transparent"
+                placeholder="From"
+              />
+              <span className="text-slate-400">to</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={handleEndDateChange}
+                className="text-sm border-none outline-none bg-transparent"
+              />
+              {(startDate || endDate) && (
+                <button
+                  onClick={() => clearDateFilter()}
+                  className="ml-1 p-0.5 rounded hover:bg-slate-100"
+                  title="Clear date filter"
+                >
+                  <X className="h-4 w-4 text-slate-400" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Orders Table */}
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">
+                    Order ID
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">
+                    Order Details
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">
+                    Date &amp; Time
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">
+                    Student / Customer
+                  </th>
+                  <th className="px-6 py-4 text-right text-sm font-semibold text-slate-900">
+                    Amount
+                  </th>
+                  <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">
+                    Qty
+                  </th>
+                  <th
+                    className="px-6 py-4 text-left text-sm font-semibold text-slate-900"
+                    style={{ minWidth: "140px" }}
+                  >
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="py-16 text-center">
+                      <Loader2 className="mx-auto mb-3 h-8 w-8 text-blue-500 animate-spin" />
+                      <p className="text-sm text-slate-500">Loading orders…</p>
+                    </td>
+                  </tr>
+                ) : displayedOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-16 text-center">
+                      <Package className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+                      <p className="text-lg font-medium text-slate-600">
+                        No orders found
+                      </p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        {searchQuery
+                          ? "Try adjusting your search query"
+                          : hasActiveFilters
+                            ? "Try changing filter options"
+                            : "Confirmed orders will appear here"}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  displayedOrders.map((order, idx) => (
+                    <AllOrderRow
+                      key={`${order.id}-${order.items?.[0]?.id || idx}`}
+                      order={order}
+                      onViewOrder={() =>
+                        navigate(
+                          `/dashboard/orders/${order.items?.[0]?.id || order.id}`,
+                        )
+                      }
+                    />
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4">
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <select
+                className="rounded border border-slate-300 bg-white px-2 py-1 text-sm"
+                value={limitParam}
+                onChange={(e) => setLimit(e.target.value)}
+              >
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="150">150</option>
+                <option value="200">200</option>
+                <option value="all">All</option>
+              </select>
+              <span>Items per page</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm text-slate-600">
+              <span>
+                Page {page} of {totalPages} · {totalCount} total
+              </span>
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1 || limit === "all"}
+                  onClick={() => setPage(page - 1)}
+                >
+                  Prev
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages || limit === "all"}
+                  onClick={() => setPage(page + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
 }
 

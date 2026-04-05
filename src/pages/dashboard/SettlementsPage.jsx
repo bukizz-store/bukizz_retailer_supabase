@@ -242,15 +242,7 @@ export default function SettlementsPage() {
       iconColor: "text-emerald-600",
     },
     {
-      title: "Last Settlement",
-      value: formatDateStr(summaryData.last_settlement_date),
-      subtext: "Most recent payout",
-      icon: Clock,
-      iconBg: "bg-violet-50",
-      iconColor: "text-violet-600",
-    },
-    {
-      title: "Today's Settled",
+      title: "To Be Settled",
       value: !summaryData.to_be_settled
         ? "NA"
         : formatAmountK(summaryData.to_be_settled),
@@ -258,6 +250,14 @@ export default function SettlementsPage() {
       icon: Wallet,
       iconBg: "bg-amber-50",
       iconColor: "text-amber-600",
+    },
+    {
+      title: "Last Settlement",
+      value: formatDateStr(summaryData.last_settlement_date),
+      subtext: "Most recent payout",
+      icon: Clock,
+      iconBg: "bg-violet-50",
+      iconColor: "text-violet-600",
     },
     {
       title: "Next Settlement",
