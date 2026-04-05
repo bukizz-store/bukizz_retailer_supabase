@@ -97,4 +97,52 @@ export const orderService = {
     const response = await apiClient.get(`/users/admin/${userId}`);
     return response.data;
   },
+
+  // ── Advanced Filter APIs (All Orders Page) ──
+
+  /**
+   * POST /retailer/orders/warehouse/:warehouseId/filter
+   * Advanced filtered order query with product type, school, product, student filters
+   */
+  filterOrders: async (warehouseId, body) => {
+    if (!warehouseId) throw new Error("Warehouse ID is required");
+    const response = await apiClient.post(
+      `/retailer/orders/warehouse/${warehouseId}/filter`,
+      body,
+    );
+    return response.data;
+  },
+
+  /**
+   * GET /retailer/orders/warehouse/:warehouseId/filter-options/schools
+   */
+  getFilterSchools: async (warehouseId) => {
+    const response = await apiClient.get(
+      `/retailer/orders/warehouse/${warehouseId}/filter-options/schools`,
+    );
+    return response.data;
+  },
+
+  /**
+   * GET /retailer/orders/warehouse/:warehouseId/filter-options/products
+   */
+  getFilterProducts: async (warehouseId, schoolIds = []) => {
+    const params = {};
+    if (schoolIds.length > 0) params.schoolIds = schoolIds.join(",");
+    const response = await apiClient.get(
+      `/retailer/orders/warehouse/${warehouseId}/filter-options/products`,
+      { params },
+    );
+    return response.data;
+  },
+
+  /**
+   * GET /retailer/orders/warehouse/:warehouseId/filter-options/students
+   */
+  getFilterStudents: async (warehouseId) => {
+    const response = await apiClient.get(
+      `/retailer/orders/warehouse/${warehouseId}/filter-options/students`,
+    );
+    return response.data;
+  },
 };

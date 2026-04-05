@@ -70,6 +70,43 @@ const useOrderStore = create((set, get) => ({
   },
 
   /**
+   * Fetch filtered orders using POST /filter API (All Orders page).
+   * @param {string} warehouseId
+   * @param {object} body — full POST body including advanced filters
+   */
+  fetchFilteredOrders: async (warehouseId, body = {}) => {
+    if (!warehouseId) {
+      set({ orders: [], totalCount: 0, statusCounts: null, summary: null, isLoading: false });
+      return;
+    }
+
+    set({ isLoading: true, error: null });
+
+    try {
+      const response = await orderService.filterOrders(warehouseId, body);
+      const data = response?.data || response;
+      const orders = data?.orders || [];
+      const totalCount = data?.pagination?.total ?? orders.length;
+      const statusCounts = data?.statusCounts || null;
+      const summary = data?.summary || null;
+
+      set({
+        orders: Array.isArray(orders) ? orders : [],
+        totalCount,
+        statusCounts,
+        summary,
+        isLoading: false,
+      });
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Failed to fetch filtered orders.";
+      set({ error: message, isLoading: false, orders: [] });
+    }
+  },
+
+  /**
    * Update the status of an order item (e.g., mark as processed/shipped).
    */
   updateOrderItemStatus: async (orderId, itemId, newStatus, note = "") => {
