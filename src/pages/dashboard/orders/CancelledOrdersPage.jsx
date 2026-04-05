@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
@@ -43,15 +43,23 @@ export default function CancelledOrdersPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(10);
     const searchTimeoutRef = useRef(null);
 
+    // ── URL-based state for page, limit ──
+    const [searchParams, setSearchParams] = useSearchParams();
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+
+    const setPage = (p) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(p)); return n; });
+    const setLimit = (l) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('limit', String(l)); n.set('page', '1'); return n; });
+
     // ── Fetch cancelled orders ──
+    const [summaryData, setSummaryData] = useState(null);
     const fetchCancelledOrders = useCallback(async () => {
         if (!warehouseId) {
             setOrders([]);
             setTotalCount(0);
+            setSummaryData(null);
             return;
         }
         setIsLoading(true);
@@ -65,6 +73,7 @@ export default function CancelledOrdersPage() {
             const total = data?.totalCount ?? data?.total ?? data?.pagination?.total ?? items.length;
             setOrders(Array.isArray(items) ? items : []);
             setTotalCount(total);
+            setSummaryData(data?.summary || null);
         } catch (err) {
             const message = err.response?.data?.message || err.response?.data?.error || 'Failed to fetch cancelled orders.';
             setError(message);
@@ -94,8 +103,9 @@ export default function CancelledOrdersPage() {
         };
     }, []);
 
-    // ── Stats ──
-    const totalLostRevenue = orders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+    // ── Stats from API summary ──
+    const totalLostRevenue = summaryData?.cancelledAmount ?? orders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+    const totalItemsAffected = summaryData?.cancelledItems ?? orders.reduce((sum, o) => sum + (o.items?.length || 0), 0);
     const totalPages = Math.ceil(totalCount / limit);
 
     return (
@@ -161,7 +171,7 @@ export default function CancelledOrdersPage() {
                     </div>
                     <div>
                         <span className="text-2xl font-bold text-slate-900">
-                            {isLoading ? '—' : orders.reduce((sum, o) => sum + (o.items?.length || 0), 0)}
+                            {isLoading ? '—' : totalItemsAffected}
                         </span>
                         <p className="text-sm font-medium text-slate-600">Items Affected</p>
                     </div>
@@ -298,11 +308,10 @@ export default function CancelledOrdersPage() {
                         <select
                             className="rounded border border-slate-300 bg-white px-2 py-1 text-sm"
                             value={limit}
-                            onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                            onChange={(e) => setLimit(Number(e.target.value))}
                         >
-                            <option value={10}>10</option>
-                            <option value={25}>25</option>
                             <option value={50}>50</option>
+                            <option value={100}>100</option>
                         </select>
                         <span>Items per page</span>
                     </div>

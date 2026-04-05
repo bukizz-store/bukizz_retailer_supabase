@@ -8,7 +8,7 @@ export const orderService = {
    */
   getOrders: async (
     warehouseId,
-    { page = 1, limit = 10, status = "", search = "", startDate = "", endDate = "" } = {},
+    { page = 1, limit = 50, status = "", search = "", startDate = "", endDate = "" } = {},
   ) => {
     if (!warehouseId)
       throw new Error("Warehouse ID is required to fetch orders.");
@@ -95,6 +95,54 @@ export const orderService = {
    */
   getUserById: async (userId) => {
     const response = await apiClient.get(`/users/admin/${userId}`);
+    return response.data;
+  },
+
+  // ── Advanced Filter APIs (All Orders Page) ──
+
+  /**
+   * POST /retailer/orders/warehouse/:warehouseId/filter
+   * Advanced filtered order query with product type, school, product, student filters
+   */
+  filterOrders: async (warehouseId, body) => {
+    if (!warehouseId) throw new Error("Warehouse ID is required");
+    const response = await apiClient.post(
+      `/retailer/orders/warehouse/${warehouseId}/filter`,
+      body,
+    );
+    return response.data;
+  },
+
+  /**
+   * GET /retailer/orders/warehouse/:warehouseId/filter-options/schools
+   */
+  getFilterSchools: async (warehouseId) => {
+    const response = await apiClient.get(
+      `/retailer/orders/warehouse/${warehouseId}/filter-options/schools`,
+    );
+    return response.data;
+  },
+
+  /**
+   * GET /retailer/orders/warehouse/:warehouseId/filter-options/products
+   */
+  getFilterProducts: async (warehouseId, schoolIds = []) => {
+    const params = {};
+    if (schoolIds.length > 0) params.schoolIds = schoolIds.join(",");
+    const response = await apiClient.get(
+      `/retailer/orders/warehouse/${warehouseId}/filter-options/products`,
+      { params },
+    );
+    return response.data;
+  },
+
+  /**
+   * GET /retailer/orders/warehouse/:warehouseId/filter-options/statuses
+   */
+  getFilterStatuses: async (warehouseId) => {
+    const response = await apiClient.get(
+      `/retailer/orders/warehouse/${warehouseId}/filter-options/statuses`,
+    );
     return response.data;
   },
 };
