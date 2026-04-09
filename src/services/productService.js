@@ -160,7 +160,7 @@ export const productService = {
       "[bulkUpdateVariantStock] updates:",
       JSON.stringify(updates, null, 2),
     );
-    const response = await apiClient.put("/products/variants/bulk-stock", {
+    const response = await apiClient.put("/products/variants/bulk-stock-update", {
       updates,
     });
     return response.data;

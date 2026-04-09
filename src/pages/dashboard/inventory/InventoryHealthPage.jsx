@@ -220,6 +220,18 @@ export default function InventoryHealthPage() {
         return groups;
     }, [allGroups, selectedFilter, searchQuery]);
 
+    // ── Auto-expand products when viewing filtered sections ──
+    useEffect(() => {
+        // Auto-expand all products in all sections for consistency
+        // This ensures all stock editing details are always visible
+        const newExpandedState = {};
+        filteredGroups.forEach((group) => {
+            newExpandedState[group.productId] = true;
+        });
+        
+        setExpandedProducts(newExpandedState);
+    }, [selectedFilter, filteredGroups]);
+
     // ── Toggle expand / collapse for a product ──
     const toggleExpand = (productId) => {
         setExpandedProducts(prev => ({ ...prev, [productId]: !prev[productId] }));
