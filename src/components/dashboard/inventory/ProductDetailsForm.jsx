@@ -258,6 +258,7 @@ export default function ProductDetailsForm({
     city: cityToUse || "",
     basePrice: "",
     compareAtPrice: "",
+    packagingHours: 4,
     deliveryHours: 24,
     shortDescription: "",
     description: "", // RTE HTML — maps to productData.description
@@ -305,6 +306,11 @@ export default function ProductDetailsForm({
                 p.productData.compare_at_price ||
                 p.productData.compareAtPrice ||
                 "",
+              packagingHours:
+                p.productData.packaging_hours ||
+                p.productData.packagingHours ||
+                p.productData.metadata?.packagingHours ||
+                4,
               deliveryHours: p.productData.deliveryHours || 24,
               shortDescription:
                 p.productData.short_description ||
@@ -978,6 +984,7 @@ export default function ProductDetailsForm({
         productType: isSchoolFlow ? localProductType : (isAddon ? "addon" : "general"),
         basePrice: parseFloat(formData.basePrice),
         compareAtPrice: parseFloat(formData.compareAtPrice) || null,
+        packagingHours: parseInt(formData.packagingHours) || 4,
         deliveryHours: parseInt(formData.deliveryHours) || 24,
         shortDescription: formData.shortDescription,
         description: formData.description, // RTE HTML
@@ -985,6 +992,7 @@ export default function ProductDetailsForm({
         currency: "INR",
         highlight: highlightObj,
         metadata: {
+          packagingHours: parseInt(formData.packagingHours) || 4,
           categoryAttributes: categoryAttrsObj,
           compare_price: formData.compareAtPrice,
           customerMessage: {
@@ -1151,13 +1159,13 @@ export default function ProductDetailsForm({
                 helperText="MRP / original price for discount"
               />
               <Input
-                label="Estimated Delivery Hours"
+                label="Estimated Packaging / Prep Time (Hours)"
                 type="number"
                 min="1"
-                placeholder="24"
-                value={formData.deliveryHours}
-                onChange={(e) => updateField("deliveryHours", e.target.value)}
-                helperText="Enter the estimated hours it takes to deliver this product. The main website uses this to calculate if the delivery will be 'Same Day' or 'Next Day' based on our 8 AM - 10 PM working hours."
+                placeholder="4"
+                value={formData.packagingHours}
+                onChange={(e) => updateField("packagingHours", e.target.value)}
+                helperText="Estimated hours to prepare & pack this product for dispatch (e.g., 2 hrs for books, 24-48 hrs for uniforms)."
               />
             </div>
 
