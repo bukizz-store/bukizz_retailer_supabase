@@ -1,9 +1,36 @@
 import axios from "axios";
 
-const API_BASE_URL =
-    window.location.hostname === 'localhost'
-        ? 'http://localhost:5001/api/v1'
-        : 'https://bukizz.in/api/v1';
+const getBaseUrl = () => {
+  if (typeof window !== "undefined") {
+    const { hostname } = window.location;
+
+    // 1. Localhost or loopback
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return import.meta.env.VITE_API_URL || "http://localhost:5001/api/v1";
+    }
+
+    // 2. Local network IP (e.g. mobile device testing on LAN: 192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+    if (
+      hostname.startsWith("192.168.") ||
+      hostname.startsWith("10.") ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)
+    ) {
+      return import.meta.env.VITE_API_URL || `http://${hostname}:5001/api/v1`;
+    }
+
+    // 3. Explicit env var if configured
+    if (import.meta.env.VITE_API_URL) {
+      return import.meta.env.VITE_API_URL;
+    }
+
+    // 4. Default to production
+    return "https://bukizz.in/api/v1";
+  }
+
+  return import.meta.env.VITE_API_URL || "http://localhost:5001/api/v1";
+};
+
+const API_BASE_URL = getBaseUrl();
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

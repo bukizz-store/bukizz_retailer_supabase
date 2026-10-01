@@ -106,7 +106,10 @@ export const productService = {
   },
 
   getComprehensiveProduct: async (id) => {
-    const response = await apiClient.get(`/products/${id}/comprehensive`);
+    const response = await apiClient.get(`/products/${id}/comprehensive`, {
+      params: { _t: Date.now() },
+      headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+    });
     return response.data;
   },
 

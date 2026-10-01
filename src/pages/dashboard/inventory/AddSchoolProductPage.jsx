@@ -45,6 +45,9 @@ export default function AddSchoolProductPage({ isEditMode = false }) {
   const [schoolName, setSchoolName] = useState(
     location.state?.schoolName || "School",
   );
+  const [schoolCity, setSchoolCity] = useState(
+    location.state?.schoolCity || "",
+  );
   const allowedTypes = location.state?.allowedTypes || null;
 
   const [currentStep, setCurrentStep] = useState(isEditMode ? 1 : 0);
@@ -56,18 +59,25 @@ export default function AddSchoolProductPage({ isEditMode = false }) {
   }, [isEditMode]);
 
   useEffect(() => {
-    // If we're editing but didn't come from a page with schoolName in state, fetch the school name
-    if (isEditMode && schoolId && schoolName === "School") {
+    // If schoolId is available and we don't have schoolCity or schoolName, fetch the school details
+    if (schoolId && (!schoolCity || schoolName === "School")) {
       schoolService
         .getSchoolById(schoolId)
-        .then((school) => {
-          if (school && school.name) {
-            setSchoolName(school.name);
+        .then((res) => {
+          const s = res?.school || res;
+          if (s) {
+            if (s.name && schoolName === "School") {
+              setSchoolName(s.name);
+            }
+            const fetchedCity = s.city || s.address?.city || "";
+            if (fetchedCity) {
+              setSchoolCity(fetchedCity);
+            }
           }
         })
         .catch((err) => console.error("Could not fetch school details:", err));
     }
-  }, [isEditMode, schoolId, schoolName]);
+  }, [schoolId, schoolName, schoolCity]);
   const [loading, setLoading] = useState(true);
   const [schoolSubcategories, setSchoolSubcategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -137,11 +147,12 @@ export default function AddSchoolProductPage({ isEditMode = false }) {
     });
   };
 
-  // Derive city from warehouse
-  const warehouseCity =
+  // Derive city: prioritize school city, fallback to warehouse
+  const resolvedCity =
+    schoolCity ||
     activeWarehouse?.address?.city ||
     activeWarehouse?.city ||
-    activeWarehouse?.address ||
+    (typeof activeWarehouse?.address === "string" ? activeWarehouse.address : "") ||
     "";
 
   return (
@@ -278,8 +289,9 @@ export default function AddSchoolProductPage({ isEditMode = false }) {
             schoolName={schoolName}
             schoolProductType={selectedCategory?.name?.toLowerCase()}
             prefilledCity={
-              typeof warehouseCity === "string" ? warehouseCity : ""
+              typeof resolvedCity === "string" ? resolvedCity : ""
             }
+            schoolCity={schoolCity}
             productId={isEditMode ? productId : null}
             isEditMode={isEditMode}
           />
