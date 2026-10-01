@@ -421,7 +421,7 @@ export default function InventoryHealthPage() {
                                 <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">
                                     Status
                                 </th>
-                                <th className="hidden px-6 py-4 text-right text-sm font-semibold text-slate-900 md:table-cell">
+                                <th className="px-6 py-4 text-right text-sm font-semibold text-slate-900">
                                     Price
                                 </th>
                             </tr>
@@ -520,7 +520,7 @@ export default function InventoryHealthPage() {
                                                 <td className="px-6 py-4">
                                                     {getStockBadge(group.totalStock)}
                                                 </td>
-                                                <td className="hidden px-6 py-4 text-right md:table-cell">
+                                                <td className="px-6 py-4 text-right">
                                                     {/* Price range or single price */}
                                                     {(() => {
                                                         const prices = group.variants.map(v => v.price).filter(Boolean);
@@ -627,7 +627,7 @@ export default function InventoryHealthPage() {
                                                         <td className="px-6 py-3">
                                                             {getStockBadge(variant.stock)}
                                                         </td>
-                                                        <td className="hidden px-6 py-3 text-right md:table-cell">
+                                                        <td className="px-6 py-3 text-right">
                                                             <span className="text-sm font-medium text-slate-700">
                                                                 ₹{variant.price?.toLocaleString()}
                                                             </span>

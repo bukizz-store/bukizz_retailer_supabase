@@ -403,7 +403,11 @@ export default function SchoolProductManagementPage() {
             <Button
               onClick={() =>
                 navigate(`/dashboard/inventory/schools/${schoolId}/add`, {
-                  state: { allowedTypes, schoolName: school.name || "School" },
+                  state: {
+                    allowedTypes,
+                    schoolName: school.name || "School",
+                    schoolCity: school.city || school.address?.city || "",
+                  },
                 })
               }
             >
@@ -507,6 +511,7 @@ export default function SchoolProductManagementPage() {
                                   state: {
                                     allowedTypes,
                                     schoolName: school.name || "School",
+                                    schoolCity: school.city || school.address?.city || "",
                                   },
                                 },
                               )
@@ -635,6 +640,7 @@ export default function SchoolProductManagementPage() {
                                       state: {
                                         allowedTypes,
                                         schoolName: school.name || "School",
+                                        schoolCity: school.city || school.address?.city || "",
                                       },
                                     },
                                   )
@@ -673,6 +679,7 @@ export default function SchoolProductManagementPage() {
                     state: {
                       allowedTypes,
                       schoolName: school.name || "School",
+                      schoolCity: school.city || school.address?.city || "",
                     },
                   })
                 }

@@ -3,6 +3,7 @@ import { useWarehouse } from "@/context/WarehouseContext";
 import { useToast } from "@/context/ToastContext";
 import useAuthStore from "@/store/authStore";
 import { productService } from "@/services/productService";
+import { schoolService } from "@/services/schoolService";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -26,8 +27,25 @@ import {
   GripVertical,
   GraduationCap,
   MapPin,
+  Lock,
+  Split,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import financeService from "@/services/financeService";
+import kitService from "@/services/kitService";
+import KitComponentModal from "@/components/dashboard/inventory/KitComponentModal";
+
+// ────────────────────────────────────────────────────────────────
+// Predefined Default GST Slabs conforming to Bukizz Tax Engine
+// ────────────────────────────────────────────────────────────────
+const DEFAULT_GST_SLABS = [
+  { id: "d8116cf1-ccf4-47cf-8765-82bba5eb4da5", rate: 0, description: "Educational Textbooks & Print Materials", label: "0% — Textbooks & Educational Books (0%)" },
+  { id: "6dcf330c-c1ae-4b3d-8284-c0aabaf85659", rate: 5, description: "Children Drawing & Picture Books", label: "5% — Children Drawing & Picture Books (5%)" },
+  { id: "ef837dc7-92b3-4046-8dd2-c9c53681cee3", rate: 12, description: "Exercise Notebooks & Stationery", label: "12% — Exercise Notebooks & Stationery (12%)" },
+  { id: "8e946a10-7af0-4235-892c-148e21b6773c", rate: 18, description: "Platform, Uniforms & Merchandise", label: "18% — Uniforms, Bags & General Merchandise (18%)" },
+  { id: "8e9acc28-6a06-4d4f-8bcd-9b128e9617b3", rate: 28, description: "Software / Digital Media", label: "28% — Luxury / High-Tax Items (28%)" },
+];
 
 // ────────────────────────────────────────────────────────────────
 // Cartesian Product Utility
@@ -224,6 +242,7 @@ export default function ProductDetailsForm({
   schoolName = null,
   schoolProductType = null,
   prefilledCity = "",
+  schoolCity = "",
   productId = null,
   isEditMode = false,
   isAddon = false,
@@ -243,12 +262,13 @@ export default function ProductDetailsForm({
     ? "opacity-60 blur-[1px] pointer-events-none select-none transition-all duration-300"
     : "";
 
-  // Derive city to use: prefilled (school) > warehouse address (general) > empty
+  // Derive city to use: school city > prefilled (school) > warehouse address (general) > empty
   const cityToUse =
+    schoolCity ||
     prefilledCity ||
     activeWarehouse?.city ||
     activeWarehouse?.address?.city ||
-    activeWarehouse?.address ||
+    (typeof activeWarehouse?.address === "string" ? activeWarehouse.address : "") ||
     "";
 
   // ── Basic Info ────────────────────────────────────────────────
@@ -258,6 +278,9 @@ export default function ProductDetailsForm({
     city: cityToUse || "",
     basePrice: "",
     compareAtPrice: "",
+    gstRate: 0,
+    hsnSacCode: "4901",
+    packagingHours: 8,
     deliveryHours: 24,
     shortDescription: "",
     description: "", // RTE HTML — maps to productData.description
@@ -265,6 +288,47 @@ export default function ProductDetailsForm({
 
   const [localCategory, setLocalCategory] = useState(category);
   const [localProductType, setLocalProductType] = useState(schoolProductType);
+
+  // ── Dynamic GST Slabs & Kit Bifurcation Modals ────────────────
+  const [gstSlabs, setGstSlabs] = useState(DEFAULT_GST_SLABS);
+  const [kitModalState, setKitModalState] = useState({
+    isOpen: false,
+    variant: null,
+    variantIndex: -1,
+  });
+  const [revertWarningModal, setRevertWarningModal] = useState({
+    isOpen: false,
+    variantIndex: -1,
+    variant: null,
+    targetSlab: null,
+    loading: false,
+  });
+
+  // Fetch active GST slabs dynamically from finance engine
+  useEffect(() => {
+    let isMounted = true;
+    const fetchGstSlabs = async () => {
+      try {
+        const res = await financeService.getGstSlabs();
+        const raw = res?.data || res || [];
+        if (Array.isArray(raw) && raw.length > 0 && isMounted) {
+          const normalized = raw.map((s) => ({
+            id: s.id,
+            rate: parseFloat(s.rate_percentage ?? s.rate ?? 0),
+            description: s.description || "",
+            label: `${parseFloat(s.rate_percentage ?? s.rate ?? 0)}% — ${s.description || `${parseFloat(s.rate_percentage ?? s.rate ?? 0)}% GST`}`,
+          }));
+          setGstSlabs(normalized);
+        }
+      } catch (err) {
+        console.warn("Could not fetch remote GST slabs, using default slabs:", err);
+      }
+    };
+    fetchGstSlabs();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // ── Customer / Receipt Message ────────────────────────────────
   const [customerMessage, setCustomerMessage] = useState({
@@ -275,12 +339,18 @@ export default function ProductDetailsForm({
   });
   const [customMessageType, setCustomMessageType] = useState("");
 
-  // Auto-fill city on mount if available
+  // ── Checkout Requirements ─────────────────────────────────────
+  const [requireStudentName, setRequireStudentName] = useState(false);
+
+  // Auto-fill city and keep in sync with school city
   useEffect(() => {
-    if (cityToUse && !formData.city) {
+    const effectiveCity = schoolCity || prefilledCity;
+    if (effectiveCity) {
+      setFormData((prev) => ({ ...prev, city: effectiveCity }));
+    } else if (cityToUse && !formData.city) {
       setFormData((prev) => ({ ...prev, city: cityToUse }));
     }
-  }, [cityToUse]);
+  }, [schoolCity, prefilledCity, cityToUse]);
 
   // ── Fetch Product Context for Edit Mode ───────────────────────
   const [isFetchingContext, setIsFetchingContext] = useState(false);
@@ -295,16 +365,71 @@ export default function ProductDetailsForm({
 
           console.log("p", p);
           if (p) {
+            let editSchoolCity = schoolCity || prefilledCity;
+
+            if (p.schoolData || p.schoolInfo) {
+              const sData = p.schoolData || p.schoolInfo;
+              setGrade(sData.grade || "");
+              setIsMandatory(sData.mandatory || false);
+              if (sData.city) {
+                editSchoolCity = sData.city;
+              } else if (sData.schoolId && !editSchoolCity) {
+                try {
+                  const sRes = await schoolService.getSchoolById(sData.schoolId);
+                  const sc = sRes?.school || sRes;
+                  if (sc?.city || sc?.address?.city) {
+                    editSchoolCity = sc.city || sc.address?.city;
+                  }
+                } catch (e) {
+                  console.error("Could not fetch school details for city:", e);
+                }
+              }
+            } else if (schoolId && !editSchoolCity) {
+              try {
+                const sRes = await schoolService.getSchoolById(schoolId);
+                const sc = sRes?.school || sRes;
+                if (sc?.city || sc?.address?.city) {
+                  editSchoolCity = sc.city || sc.address?.city;
+                }
+              } catch (e) {
+                console.error("Could not fetch school details for city:", e);
+              }
+            }
+
+            const resolvedCity = editSchoolCity || p.productData.city || cityToUse || "";
+
             setFormData({
               title: p.productData.title || "",
               sku: p.productData.sku || "",
-              city: p.productData.city || cityToUse || "",
+              city: resolvedCity,
               basePrice:
                 p.productData.base_price || p.productData.basePrice || "",
               compareAtPrice:
                 p.productData.compare_at_price ||
                 p.productData.compareAtPrice ||
                 "",
+              gstRate:
+                p.variants?.[0]?.gst_rate ??
+                p.variants?.[0]?.gstRate ??
+                p.productData?.gst_rate ??
+                p.productData?.gstRate ??
+                0,
+              hsnSacCode:
+                p.variants?.[0]?.hsn_sac_code ||
+                p.variants?.[0]?.hsnSacCode ||
+                p.productData?.hsn_sac_code ||
+                p.productData?.hsnSacCode ||
+                "4901",
+              packagingHours: Math.max(
+                8,
+                parseInt(
+                  p.productData.packaging_hours ||
+                  p.productData.packagingHours ||
+                  p.productData.metadata?.packagingHours ||
+                  8,
+                  10
+                ) || 8
+              ),
               deliveryHours: p.productData.deliveryHours || 24,
               shortDescription:
                 p.productData.short_description ||
@@ -363,6 +488,10 @@ export default function ProductDetailsForm({
               }
             }
 
+            // Populate Require Student Name (Default to false for older products without this attribute)
+            const metaReqStudent = p.metadata?.requireStudentName ?? p.productData?.metadata?.requireStudentName;
+            setRequireStudentName(metaReqStudent !== undefined ? Boolean(metaReqStudent) : false);
+
             // Populate Highlights
             if (p.highlights) {
               const hArr = p.highlights.map((h) => ({
@@ -392,16 +521,35 @@ export default function ProductDetailsForm({
                   hasImages: opt.hasImages || false,
                   values: Array.isArray(opt.values)
                     ? opt.values.map((v) =>
-                        typeof v === "object"
+                        typeof v === "object" && v !== null
                           ? {
-                              value: v.value || v.name,
+                              value: v.value || v.name || v.title || "",
                               imageUrl: v.imageUrl || null,
                             }
-                          : { value: v, imageUrl: null },
+                          : { value: String(v || ""), imageUrl: null },
                       )
                     : [],
                 })),
               );
+            } else if (p.variants && p.variants.length > 1) {
+              // Self-healing fallback: Reconstruct option from variant names if options were lost
+              const opt1Values = Array.from(
+                new Set(
+                  p.variants
+                    .map((v) => v.option1 || (v.name && v.name !== "Default Variant" ? v.name.split(" / ")[0] : null))
+                    .filter(Boolean)
+                )
+              );
+              if (opt1Values.length > 0) {
+                setProductOptions([
+                  {
+                    id: Date.now().toString(),
+                    name: "Option",
+                    hasImages: false,
+                    values: opt1Values.map((val) => ({ value: val, imageUrl: null })),
+                  },
+                ]);
+              }
             }
 
             if (p.variants && p.variants.length > 0) {
@@ -411,32 +559,64 @@ export default function ProductDetailsForm({
                     parseFloat(v.compareAtPrice || v.compare_at_price) || 0;
                   const price = parseFloat(v.price || v.variant_price) || 0;
 
-                  // comprehensive route usually gives options dictionary like { "Size": "M", "Color": "Red" }
-                  // we need to map them to option1, option2, option3 based on backendOptions order
+                  // comprehensive route gives options dictionary or option_value_x_ref
                   const opt1Name = backendOptions[0]?.name;
                   const opt2Name = backendOptions[1]?.name;
                   const opt3Name = backendOptions[2]?.name;
 
+                  const opt1 =
+                    v.option1 ||
+                    (v.options && opt1Name ? v.options[opt1Name] : null) ||
+                    v.option_value_1_ref?.value ||
+                    (v.name && v.name !== "Default Variant" ? v.name.split(" / ")[0] : null) ||
+                    null;
+                  const opt2 =
+                    v.option2 ||
+                    (v.options && opt2Name ? v.options[opt2Name] : null) ||
+                    v.option_value_2_ref?.value ||
+                    (v.name && v.name !== "Default Variant" ? v.name.split(" / ")[1] : null) ||
+                    null;
+                  const opt3 =
+                    v.option3 ||
+                    (v.options && opt3Name ? v.options[opt3Name] : null) ||
+                    v.option_value_3_ref?.value ||
+                    (v.name && v.name !== "Default Variant" ? v.name.split(" / ")[2] : null) ||
+                    null;
+
+                  const computedName = [opt1, opt2, opt3].filter(Boolean).join(" / ");
+                  const variantName =
+                    (computedName && computedName.trim()) ||
+                    (v.name && v.name !== "Default Variant"
+                      ? v.name
+                      : "Default Variant");
+
+                  const isSplit = Boolean(
+                    v.is_split_gst ||
+                    v.isSplitGst ||
+                    (v.components && v.components.length > 0)
+                  );
+
                   return {
                     id: v.id || null,
-                    name: v.name || "Default Variant",
+                    name: variantName,
                     sku: v.sku || "",
                     price: price,
                     compareAtPrice: compareAt,
                     stock: v.stock || 0,
                     weight: v.weight || 0,
-                    option1:
-                      v.options && opt1Name
-                        ? v.options[opt1Name]
-                        : v.option1 || null,
-                    option2:
-                      v.options && opt2Name
-                        ? v.options[opt2Name]
-                        : v.option2 || null,
-                    option3:
-                      v.options && opt3Name
-                        ? v.options[opt3Name]
-                        : v.option3 || null,
+                    gstRate: parseFloat(v.gst_rate ?? v.gstRate ?? p.productData?.gst_rate ?? 0),
+                    hsnSacCode: v.hsn_sac_code || v.hsnSacCode || p.productData?.hsn_sac_code || "4901",
+                    gstSlabId: v.gst_slab_id || v.gstSlabId || null,
+                    isSplitGst: isSplit,
+                    components: v.components || [],
+                    option1: opt1,
+                    option2: opt2,
+                    option3: opt3,
+                    options: v.options || {
+                      ...(opt1Name && opt1 ? { [opt1Name]: opt1 } : {}),
+                      ...(opt2Name && opt2 ? { [opt2Name]: opt2 } : {}),
+                      ...(opt3Name && opt3 ? { [opt3Name]: opt3 } : {}),
+                    },
                     discount:
                       compareAt > 0
                         ? Math.round(((compareAt - price) / compareAt) * 100)
@@ -458,7 +638,7 @@ export default function ProductDetailsForm({
       };
       fetchProductDetails();
     }
-  }, [isEditMode, productId, cityToUse, toast]);
+  }, [isEditMode, productId, cityToUse, toast, schoolCity, prefilledCity, schoolId]);
 
   const updateField = (field, value) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -752,11 +932,20 @@ export default function ProductDetailsForm({
           option2: null,
           option3: null,
           sku: formData.sku || "",
-          compareAtPrice: parseFloat(formData.compareAtPrice) || 0,
-          price: parseFloat(formData.basePrice) || 0,
-          discount: 0,
+          compareAtPrice: prev[0]?.isSplitGst
+            ? prev[0]?.compareAtPrice
+            : (parseFloat(formData.compareAtPrice) || 0),
+          price: prev[0]?.isSplitGst
+            ? prev[0]?.price
+            : (parseFloat(formData.basePrice) || 0),
+          discount: prev[0]?.discount || 0,
           stock: prev[0]?.stock || 0,
           weight: prev[0]?.weight || 0,
+          gstRate: prev[0]?.gstRate ?? formData.gstRate ?? 0,
+          hsnSacCode: prev[0]?.hsnSacCode || formData.hsnSacCode || "4901",
+          gstSlabId: prev[0]?.gstSlabId ?? null,
+          isSplitGst: prev[0]?.isSplitGst ?? false,
+          components: prev[0]?.components || [],
         },
       ]);
       return;
@@ -767,8 +956,10 @@ export default function ProductDetailsForm({
 
     setVariants((prev) => {
       const lookup = {};
+      const lookupBySku = {};
       prev.forEach((v) => {
-        lookup[v.name] = v;
+        if (v.name) lookup[v.name] = v;
+        if (v.sku) lookupBySku[v.sku] = v;
       });
 
       return combos.map((combo) => {
@@ -776,12 +967,20 @@ export default function ProductDetailsForm({
         const skuSuffix = combo
           .map((v) => v.replace(/\s+/g, "").toUpperCase())
           .join("-");
-        const existing = lookup[name];
+        const expectedSku = `${formData.sku}-${skuSuffix}`;
+        const existing =
+          lookup[name] ||
+          lookupBySku[expectedSku] ||
+          lookupBySku[`${formData.sku}-${combo.join("-")}`] ||
+          (combos.length === 1 && prev.length === 1 ? prev[0] : undefined);
 
-        const compareAt =
-          existing?.compareAtPrice ??
-          (parseFloat(formData.compareAtPrice) || 0);
-        const price = existing?.price ?? (parseFloat(formData.basePrice) || 0);
+        const isSplit = existing?.isSplitGst ?? false;
+        const compareAt = isSplit
+          ? (existing?.compareAtPrice ?? 0)
+          : (existing?.compareAtPrice ?? (parseFloat(formData.compareAtPrice) || 0));
+        const price = isSplit
+          ? (existing?.price ?? 0)
+          : (existing?.price ?? (parseFloat(formData.basePrice) || 0));
 
         return {
           id: existing?.id || undefined,
@@ -798,6 +997,11 @@ export default function ProductDetailsForm({
               : 0,
           stock: existing?.stock ?? 0,
           weight: existing?.weight ?? 0,
+          gstRate: existing?.gstRate ?? formData.gstRate ?? 0,
+          hsnSacCode: existing?.hsnSacCode || formData.hsnSacCode || "4901",
+          gstSlabId: existing?.gstSlabId ?? null,
+          isSplitGst: isSplit,
+          components: existing?.components || [],
         };
       });
     });
@@ -806,6 +1010,8 @@ export default function ProductDetailsForm({
     formData.sku,
     formData.basePrice,
     formData.compareAtPrice,
+    formData.gstRate,
+    formData.hsnSacCode,
   ]);
 
   // ── Bidirectional Discount ───────────────────────────────────
@@ -876,6 +1082,84 @@ export default function ProductDetailsForm({
     });
   };
 
+  // ── Kit Components & GST Bifurcation Handlers ────────────────
+  const handleKitModalSaveSuccess = ({
+    variantIndex,
+    price,
+    compareAtPrice,
+    discount,
+    components,
+  }) => {
+    setVariants((prev) => {
+      const copy = [...prev];
+      if (variantIndex >= 0 && variantIndex < copy.length) {
+        copy[variantIndex] = {
+          ...copy[variantIndex],
+          price,
+          compareAtPrice,
+          discount,
+          components,
+          isSplitGst: true,
+          gstSlabId: null,
+        };
+      }
+      return copy;
+    });
+  };
+
+  const handleConfirmRevertFlat = async () => {
+    const { variantIndex, variant, targetSlab } = revertWarningModal;
+    if (variantIndex < 0 || !variant || !targetSlab) return;
+
+    setRevertWarningModal((prev) => ({ ...prev, loading: true }));
+    try {
+      if (productId && variant.id) {
+        await kitService.revertToFlatGst(productId, variant.id, {
+          gstSlabId: targetSlab.id,
+          price: parseFloat(variant.price) || 0,
+          compareAtPrice:
+            parseFloat(variant.compareAtPrice) || parseFloat(variant.price) || 0,
+        });
+      }
+
+      setVariants((prev) => {
+        const copy = [...prev];
+        copy[variantIndex] = {
+          ...copy[variantIndex],
+          isSplitGst: false,
+          gstSlabId: targetSlab.id,
+          gstRate: targetSlab.rate,
+          components: [],
+        };
+        return copy;
+      });
+
+      toast({
+        title: "Reverted to Flat GST",
+        description: `Variant '${variant.name}' set to ${targetSlab.rate}% flat GST. Manual pricing unlocked.`,
+      });
+
+      setRevertWarningModal({
+        isOpen: false,
+        variantIndex: -1,
+        variant: null,
+        targetSlab: null,
+        loading: false,
+      });
+    } catch (err) {
+      console.error("Failed to revert to flat GST:", err);
+      toast({
+        title: "Revert Failed",
+        description:
+          err.response?.data?.message ||
+          err.message ||
+          "Could not revert to flat GST. Please try again.",
+        variant: "destructive",
+      });
+      setRevertWarningModal((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
   // ── Payload & Submission ─────────────────────────────────────
   const handleSubmit = async () => {
     if (!formData.title.trim()) {
@@ -916,6 +1200,15 @@ export default function ProductDetailsForm({
 
     if (customerMessage.type === "other" && !customMessageType.trim()) {
       toast({ title: "Please specify the custom message type", variant: "destructive" });
+      return;
+    }
+
+    if (formData.packagingHours !== "" && parseInt(formData.packagingHours, 10) < 8) {
+      toast({
+        title: "Invalid Packaging Time",
+        description: "Estimated Packaging / Prep Time must be at least 8 hours.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -978,48 +1271,94 @@ export default function ProductDetailsForm({
         productType: isSchoolFlow ? localProductType : (isAddon ? "addon" : "general"),
         basePrice: parseFloat(formData.basePrice),
         compareAtPrice: parseFloat(formData.compareAtPrice) || null,
+        packagingHours: Math.max(8, parseInt(formData.packagingHours, 10) || 8),
         deliveryHours: parseInt(formData.deliveryHours) || 24,
         shortDescription: formData.shortDescription,
         description: formData.description, // RTE HTML
         city: formData.city,
         currency: "INR",
+        gstRate: parseFloat(formData.gstRate || 0),
+        hsnSacCode: formData.hsnSacCode || "4901",
         highlight: highlightObj,
         metadata: {
+          packagingHours: Math.max(8, parseInt(formData.packagingHours, 10) || 8),
           categoryAttributes: categoryAttrsObj,
           compare_price: formData.compareAtPrice,
           customerMessage: {
             type: customerMessage.type,
             text: customerMessage.text,
             imageUrl: finalCustomerMessageImageUrl
-          }
+          },
+          requireStudentName: Boolean(requireStudentName),
         },
         isActive: false,
       },
 
       productOptions: productOptions
-        .filter((o) => o.name.trim() && o.values.length > 0)
+        .filter((o) => o.name && o.name.trim() && o.values && o.values.length > 0)
         .map((o, i) => ({
-          name: o.name,
+          name: o.name.trim(),
           values: o.values.map((v) => ({
-            value: v.value,
-            imageUrl: v.imageUrl,
+            value: typeof v === "object" && v !== null ? (v.value || v.name || v.title || "") : String(v || ""),
+            imageUrl: typeof v === "object" && v !== null ? (v.imageUrl || null) : null,
           })),
           position: i + 1,
           isRequired: true,
         })),
 
-      variants: variants.map((v) => ({
-        id: v.id || undefined,
-        sku: v.sku,
-        price: v.price,
-        compareAtPrice: v.compareAtPrice || null,
-        stock: parseInt(v.stock) || 0,
-        weight: parseFloat(v.weight) || 0,
-        option1: v.option1,
-        option2: v.option2,
-        option3: v.option3,
-        metadata: {},
-      })),
+      variants: variants.map((v) => {
+        const opt1Name = productOptions[0]?.name;
+        const opt2Name = productOptions[1]?.name;
+        const opt3Name = productOptions[2]?.name;
+
+        const opt1 =
+          v.option1 ||
+          (opt1Name && v.options?.[opt1Name]) ||
+          (v.name && v.name !== "Default Variant" ? v.name.split(" / ")[0] : null) ||
+          null;
+        const opt2 =
+          v.option2 ||
+          (opt2Name && v.options?.[opt2Name]) ||
+          (v.name && v.name !== "Default Variant" ? v.name.split(" / ")[1] : null) ||
+          null;
+        const opt3 =
+          v.option3 ||
+          (opt3Name && v.options?.[opt3Name]) ||
+          (v.name && v.name !== "Default Variant" ? v.name.split(" / ")[2] : null) ||
+          null;
+
+        const variantName =
+          (v.name && v.name !== "Default Variant")
+            ? v.name
+            : ([opt1, opt2, opt3].filter(Boolean).join(" / ") || "Default Variant");
+
+        return {
+          id: v.id || undefined,
+          name: variantName,
+          sku: v.sku,
+          price: v.price,
+          compareAtPrice: v.compareAtPrice || null,
+          stock: parseInt(v.stock) || 0,
+          weight: parseFloat(v.weight) || 0,
+          option1: opt1,
+          option2: opt2,
+          option3: opt3,
+          options: {
+            ...(opt1Name && opt1 ? { [opt1Name]: opt1 } : {}),
+            ...(opt2Name && opt2 ? { [opt2Name]: opt2 } : {}),
+            ...(opt3Name && opt3 ? { [opt3Name]: opt3 } : {}),
+          },
+          gstRate: v.isSplitGst ? 0 : parseFloat(v.gstRate ?? formData.gstRate ?? 0),
+          hsnSacCode: v.isSplitGst ? "KIT" : (v.hsnSacCode || formData.hsnSacCode || "4901"),
+          gstSlabId: v.isSplitGst ? null : (v.gstSlabId || null),
+          isSplitGst: Boolean(v.isSplitGst),
+          components: v.components || [],
+          metadata: {
+            ...(v.metadata || {}),
+            name: variantName,
+          },
+        };
+      }),
 
       images: images.map((url, i) => ({
         url,
@@ -1118,13 +1457,20 @@ export default function ProductDetailsForm({
                     : "Auto-generated from title"
                 }
               />
-              <div className={disabledBlurClass}>
+              <div>
                 <Input
                   label="City"
                   value={formData.city}
-                  onChange={(e) => updateField("city", e.target.value)}
-                  placeholder="e.g. Delhi"
-                  disabled={isEditMode}
+                  placeholder="Auto-filled from school"
+                  disabled
+                  readOnly
+                  icon={<MapPin className="h-4 w-4 text-slate-400" />}
+                  rightElement={<Lock className="h-4 w-4 text-slate-400" />}
+                  helperText={
+                    isSchoolFlow || schoolCity
+                      ? "Auto-filled from school (non-editable)"
+                      : "Auto-filled from warehouse (non-editable)"
+                  }
                 />
               </div>
             </div>
@@ -1151,14 +1497,91 @@ export default function ProductDetailsForm({
                 helperText="MRP / original price for discount"
               />
               <Input
-                label="Estimated Delivery Hours"
+                label="Estimated Packaging / Prep Time (Hours)"
                 type="number"
-                min="1"
-                placeholder="24"
-                value={formData.deliveryHours}
-                onChange={(e) => updateField("deliveryHours", e.target.value)}
-                helperText="Enter the estimated hours it takes to deliver this product. The main website uses this to calculate if the delivery will be 'Same Day' or 'Next Day' based on our 8 AM - 10 PM working hours."
+                min="8"
+                placeholder="8"
+                value={formData.packagingHours}
+                onChange={(e) => updateField("packagingHours", e.target.value)}
+                onBlur={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (isNaN(val) || val < 8) {
+                    updateField("packagingHours", 8);
+                  }
+                }}
+                helperText="Minimum 8 hours. Cannot be decreased below 8 hours."
               />
+            </div>
+
+            {/* GST & Tax Slab Configuration */}
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                  <Tag className="w-4 h-4 text-blue-600" />
+                  GST Tax Bracket & HSN Classification
+                </span>
+                <span className="text-xs text-slate-500">
+                  Indian GST compliance: selling price is tax-inclusive
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-700">
+                    Applicable GST Slab
+                  </label>
+                  <select
+                    className="flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition-all hover:border-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    value={formData.gstRate}
+                    onChange={(e) => {
+                      const newRate = parseFloat(e.target.value);
+                      setFormData((prev) => ({
+                        ...prev,
+                        gstRate: newRate,
+                      }));
+                    }}
+                  >
+                    {gstSlabs.map((slab) => (
+                      <option key={slab.id || slab.rate} value={slab.rate}>
+                        {slab.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-700">
+                    HSN / SAC Code
+                  </label>
+                  <Input
+                    value={formData.hsnSacCode}
+                    onChange={(e) => updateField("hsnSacCode", e.target.value)}
+                    placeholder="e.g. 4901"
+                    helperText="4901 for textbooks (0%), 4820 for notebooks (12%)"
+                  />
+                </div>
+              </div>
+
+              {Number(formData.basePrice) > 0 && (
+                <div className="rounded-lg bg-blue-50/80 border border-blue-200/80 p-3 text-xs text-blue-900 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="text-slate-600">Customer Price (Tax-Inclusive):</span>{" "}
+                    <span className="font-semibold text-slate-900">₹{Number(formData.basePrice).toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-600">Base Taxable Value:</span>{" "}
+                    <span className="font-semibold text-blue-700">
+                      ₹{(Number(formData.basePrice) / (1 + Number(formData.gstRate || 0) / 100)).toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-600">GST Component ({formData.gstRate}%):</span>{" "}
+                    <span className="font-semibold text-emerald-700">
+                      ₹{(Number(formData.basePrice) - Number(formData.basePrice) / (1 + Number(formData.gstRate || 0) / 100)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Brand Selector */}
@@ -1355,6 +1778,34 @@ export default function ProductDetailsForm({
                  </div>
                </>
              )}
+          </CardContent>
+        </Card>
+
+        {/* ── Checkout Requirements ── */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+              <GraduationCap className="h-5 w-5 text-blue-600" />
+              Checkout Requirements
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <label className="flex items-start gap-3 cursor-pointer p-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+              <input
+                type="checkbox"
+                checked={requireStudentName}
+                onChange={(e) => setRequireStudentName(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <div>
+                <span className="text-sm font-medium text-slate-900 block">
+                  Require Student Name at Checkout
+                </span>
+                <span className="text-xs text-slate-500 block mt-0.5 leading-relaxed">
+                  When enabled, customers must provide the student's name on the address selection page during checkout. Recommended for school booksets and uniforms.
+                </span>
+              </div>
+            </label>
           </CardContent>
         </Card>
 
@@ -1631,10 +2082,10 @@ export default function ProductDetailsForm({
             ))}
 
             {productOptions.length === 0 && (
-              <p className="text-sm text-slate-400 text-center py-4">
-                No options defined. A single default variant will be created
-                automatically.
-              </p>
+              <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-blue-50/60 border border-blue-100 text-xs text-blue-700 font-medium">
+                <Package className="h-4 w-4 text-blue-500 shrink-0" />
+                <span>No options defined. A single default variant will be created automatically.</span>
+              </div>
             )}
 
             {/* Variants Table */}
@@ -1642,7 +2093,7 @@ export default function ProductDetailsForm({
               <div className="mt-4">
                 {isEditMode && (
                   <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 mb-4 flex items-start gap-3">
-                    <div className="w-5 h-5 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 flex-shrink-0 mt-0.5 mt-0">
+                    <div className="w-5 h-5 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 flex-shrink-0 mt-0">
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
                     <div>
@@ -1651,115 +2102,279 @@ export default function ProductDetailsForm({
                     </div>
                   </div>
                 )}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-medium">
-                          Variant
-                        </th>
-                        <th className="px-4 py-3 text-left font-medium w-48">
-                          SKU
-                        </th>
-                        <th className="px-4 py-3 text-left font-medium w-32">
-                          Compare At (₹)
-                        </th>
-                        <th className="px-4 py-3 text-left font-medium w-28">
-                          % Disc
-                        </th>
-                        <th className="px-4 py-3 text-left font-medium w-32">
-                          Price (₹)
-                        </th>
-                        <th className="px-4 py-3 text-left font-medium w-24">
-                          Stock
-                        </th>
-                        <th className="px-4 py-3 text-left font-medium w-24">
-                          Weight
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {variants.map((v, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/50">
-                          <td className="px-4 py-2.5 font-medium text-slate-900 whitespace-nowrap">
-                            {v.name}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <input
-                              type="text"
-                              className="h-8 w-full text-sm rounded border border-slate-200 px-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                              value={v.sku}
-                              onChange={(e) =>
-                                updateVariantField(idx, "sku", e.target.value)
-                              }
-                            />
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <input
-                              type="number"
-                              className="h-8 w-full text-sm rounded border border-slate-200 px-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                              value={v.compareAtPrice}
-                              onChange={(e) =>
-                                updateVariantCompareAt(idx, e.target.value)
-                              }
-                            />
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <input
-                              type="number"
-                              className="h-8 w-full text-sm rounded border border-slate-200 px-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                              value={v.discount}
-                              min="0"
-                              max="100"
-                              onChange={(e) =>
-                                updateVariantDiscount(idx, e.target.value)
-                              }
-                            />
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <input
-                              type="number"
-                              className="h-8 w-full text-sm rounded border border-slate-200 px-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                              value={v.price}
-                              onChange={(e) =>
-                                updateVariantPrice(idx, e.target.value)
-                              }
-                            />
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <input
-                              type="number"
-                              className="h-8 w-full text-sm rounded border border-slate-200 px-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                              value={v.stock}
-                              min="0"
-                              onChange={(e) =>
-                                updateVariantField(idx, "stock", e.target.value)
-                              }
-                            />
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <input
-                              type="number"
-                              className="h-8 w-full text-sm rounded border border-slate-200 px-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                              value={v.weight}
-                              min="0"
-                              step="0.01"
-                              onChange={(e) =>
-                                updateVariantField(
-                                  idx,
-                                  "weight",
-                                  e.target.value,
-                                )
-                              }
-                            />
-                          </td>
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[980px] text-sm">
+                      <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 text-xs font-semibold uppercase tracking-wider">
+                        <tr>
+                          <th className="px-4 py-3 text-left min-w-[140px]">
+                            Variant
+                          </th>
+                          <th className="px-3 py-3 text-left min-w-[130px]">
+                            SKU
+                          </th>
+                          <th className="px-3 py-3 text-left min-w-[110px]">
+                            Compare At (₹)
+                          </th>
+                          <th className="px-2 py-3 text-center min-w-[75px]">
+                            % Disc
+                          </th>
+                          <th className="px-3 py-3 text-left min-w-[110px]">
+                            Price (₹)
+                          </th>
+                          <th className="px-3 py-3 text-left min-w-[115px]">
+                            GST %
+                          </th>
+                          <th className="px-3 py-3 text-center min-w-[170px]">
+                            Kit Breakdown
+                          </th>
+                          <th className="px-3 py-3 text-center min-w-[80px]">
+                            Stock
+                          </th>
+                          <th className="px-3 py-3 text-center min-w-[85px]">
+                            Weight (kg)
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {variants.map((v, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-2.5 font-medium text-slate-900 whitespace-nowrap min-w-[140px]">
+                              <div className="flex items-center gap-1.5">
+                                <span className="truncate max-w-[130px]" title={v.name}>{v.name}</span>
+                                {v.isSplitGst && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-800 shrink-0">
+                                    Kit
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 min-w-[130px]">
+                              <input
+                                type="text"
+                                placeholder="SKU"
+                                className="h-8 w-full min-w-[120px] text-xs font-mono rounded-md border border-slate-200 bg-white px-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
+                                value={v.sku}
+                                onChange={(e) =>
+                                  updateVariantField(idx, "sku", e.target.value)
+                                }
+                              />
+                            </td>
+                            <td className="px-3 py-2.5 min-w-[110px]">
+                              {v.isSplitGst ? (
+                                <div
+                                  className="relative flex items-center min-w-[100px]"
+                                  title="Locked: Computed from loose kit components"
+                                >
+                                  <input
+                                    type="number"
+                                    readOnly
+                                    className="h-8 w-full min-w-[100px] text-xs rounded-md border border-slate-200 bg-slate-100 text-slate-700 font-semibold pl-2.5 pr-6 cursor-not-allowed select-none focus:outline-none"
+                                    value={v.compareAtPrice}
+                                  />
+                                  <Lock
+                                    size={12}
+                                    className="absolute right-2 text-slate-400 pointer-events-none"
+                                  />
+                                </div>
+                              ) : (
+                                <input
+                                  type="number"
+                                  placeholder="0.00"
+                                  className="h-8 w-full min-w-[100px] text-xs rounded-md border border-slate-200 bg-white px-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
+                                  value={v.compareAtPrice}
+                                  onChange={(e) =>
+                                    updateVariantCompareAt(idx, e.target.value)
+                                  }
+                                />
+                              )}
+                            </td>
+                            <td className="px-2 py-2.5 text-center min-w-[75px]">
+                              {v.isSplitGst ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
+                                  {v.discount || 0}%
+                                </span>
+                              ) : (
+                                <input
+                                  type="number"
+                                  placeholder="0"
+                                  className="h-8 w-full min-w-[65px] text-xs rounded-md border border-slate-200 bg-white px-1.5 text-center focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
+                                  value={v.discount}
+                                  min="0"
+                                  max="100"
+                                  onChange={(e) =>
+                                    updateVariantDiscount(idx, e.target.value)
+                                  }
+                                />
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 min-w-[110px]">
+                              {v.isSplitGst ? (
+                                <div
+                                  className="relative flex items-center min-w-[100px]"
+                                  title="Locked: Computed from loose kit components"
+                                >
+                                  <input
+                                    type="number"
+                                    readOnly
+                                    className="h-8 w-full min-w-[100px] text-xs rounded-md border border-indigo-200 bg-indigo-50/50 text-indigo-950 font-semibold pl-2.5 pr-6 cursor-not-allowed select-none focus:outline-none"
+                                    value={v.price}
+                                  />
+                                  <Lock
+                                    size={12}
+                                    className="absolute right-2 text-indigo-400 pointer-events-none"
+                                  />
+                                </div>
+                              ) : (
+                                <input
+                                  type="number"
+                                  placeholder="0.00"
+                                  className="h-8 w-full min-w-[100px] text-xs rounded-md border border-slate-200 bg-white px-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
+                                  value={v.price}
+                                  onChange={(e) =>
+                                    updateVariantPrice(idx, e.target.value)
+                                  }
+                                />
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 min-w-[115px]">
+                              {v.isSplitGst ? (
+                                <select
+                                  className="h-8 w-full min-w-[105px] text-xs font-medium rounded-md border border-indigo-300 bg-indigo-50 text-indigo-900 px-2 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none cursor-pointer"
+                                  value="__SPLIT__"
+                                  onChange={(e) => {
+                                    const targetId = e.target.value;
+                                    if (targetId === "__SPLIT__") return;
+                                    const targetSlab = gstSlabs.find(
+                                      (s) =>
+                                        s.id === targetId ||
+                                        String(s.rate) === String(targetId)
+                                    );
+                                    if (targetSlab) {
+                                      setRevertWarningModal({
+                                        isOpen: true,
+                                        variantIndex: idx,
+                                        variant: v,
+                                        targetSlab,
+                                        loading: false,
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <option value="__SPLIT__">
+                                    ⚡ [ Split / Multi-GST ]
+                                  </option>
+                                  <optgroup label="Revert to Flat GST Slab">
+                                    {gstSlabs.map((s) => (
+                                      <option key={s.id} value={s.id}>
+                                        {s.rate}% ({s.description || `${s.rate}% GST`})
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                </select>
+                              ) : (
+                                <select
+                                  className="h-8 w-full min-w-[105px] text-xs rounded-md border border-slate-200 bg-white px-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
+                                  value={
+                                    v.gstSlabId ||
+                                    gstSlabs.find(
+                                      (s) =>
+                                        s.rate ===
+                                        (v.gstRate ?? formData.gstRate ?? 0)
+                                    )?.id ||
+                                    ""
+                                  }
+                                  onChange={(e) => {
+                                    const slabId = e.target.value;
+                                    const slab = gstSlabs.find(
+                                      (s) =>
+                                        s.id === slabId ||
+                                        String(s.rate) === String(slabId)
+                                    );
+                                    if (slab) {
+                                      updateVariantField(idx, "gstRate", slab.rate);
+                                      updateVariantField(idx, "gstSlabId", slab.id);
+                                    }
+                                  }}
+                                >
+                                  {gstSlabs.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                      {s.rate}%
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-center whitespace-nowrap min-w-[170px]">
+                              {v.isSplitGst ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setKitModalState({
+                                      isOpen: true,
+                                      variant: v,
+                                      variantIndex: idx,
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-md transition-all shadow-xs"
+                                  title="Edit itemized loose kit components"
+                                >
+                                  <Layers size={13} className="text-indigo-600" />
+                                  <span>Split ({v.components?.length || 0})</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setKitModalState({
+                                      isOpen: true,
+                                      variant: v,
+                                      variantIndex: idx,
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 px-3 py-1.5 rounded-md transition-colors"
+                                  title="Split GST / Itemize Kit Components"
+                                >
+                                  <Split size={13} className="text-slate-500" />
+                                  <span>Split GST / Kit Items</span>
+                                </button>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-center min-w-[80px]">
+                              <input
+                                type="number"
+                                placeholder="0"
+                                className="h-8 w-full min-w-[70px] text-xs rounded-md border border-slate-200 bg-white px-2 text-center focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
+                                value={v.stock}
+                                min="0"
+                                onChange={(e) =>
+                                  updateVariantField(idx, "stock", e.target.value)
+                                }
+                              />
+                            </td>
+                            <td className="px-3 py-2.5 text-center min-w-[85px]">
+                              <input
+                                type="number"
+                                placeholder="0.0"
+                                className="h-8 w-full min-w-[75px] text-xs rounded-md border border-slate-200 bg-white px-2 text-center focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
+                                value={v.weight}
+                                min="0"
+                                step="0.01"
+                                onChange={(e) =>
+                                  updateVariantField(
+                                    idx,
+                                    "weight",
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
               </div>
             )}
           </CardContent>
@@ -1806,14 +2421,14 @@ export default function ProductDetailsForm({
                 </div>
 
                 {/* City (read-only) */}
-                {prefilledCity && (
-                  <div className={disabledBlurClass}>
+                {(formData.city || prefilledCity || schoolCity) && (
+                  <div>
                     <label className="mb-1 block text-xs font-medium text-slate-500">
                       City
                     </label>
                     <div className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800">
                       <MapPin className="h-4 w-4 text-blue-500 shrink-0" />
-                      {prefilledCity}
+                      {formData.city || prefilledCity || schoolCity}
                     </div>
                   </div>
                 )}
@@ -2080,6 +2695,94 @@ export default function ProductDetailsForm({
                 )}
                 Add Brand
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Kit Component Breakdown Modal ═══ */}
+      <KitComponentModal
+        isOpen={kitModalState.isOpen}
+        onClose={() =>
+          setKitModalState({ isOpen: false, variant: null, variantIndex: -1 })
+        }
+        variant={kitModalState.variant}
+        variantIndex={kitModalState.variantIndex}
+        productId={productId}
+        gstSlabs={gstSlabs}
+        onSaveSuccess={handleKitModalSaveSuccess}
+      />
+
+      {/* ═══ Warning Modal: Revert to Flat GST ═══ */}
+      {revertWarningModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-amber-100 text-amber-600 rounded-full">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Revert to Flat GST Slab?
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Variant: {revertWarningModal.variant?.name}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50/70 border border-amber-200/80 rounded-lg p-3 text-xs text-amber-900 leading-relaxed">
+              Switching to a flat GST slab will remove the itemized component breakdown and unlock manual pricing. Continue?
+            </div>
+
+            <div className="text-xs text-slate-600 space-y-1 bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <div>
+                <span className="font-medium">Selected Flat Slab: </span>
+                <span className="font-semibold text-slate-900">
+                  {revertWarningModal.targetSlab?.rate}% — {revertWarningModal.targetSlab?.description || `${revertWarningModal.targetSlab?.rate}% GST`}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium">Current Variant Price: </span>
+                <span className="font-semibold text-slate-900">
+                  ₹{revertWarningModal.variant?.price}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setRevertWarningModal({
+                    isOpen: false,
+                    variantIndex: -1,
+                    variant: null,
+                    targetSlab: null,
+                    loading: false,
+                  })
+                }
+                disabled={revertWarningModal.loading}
+                className="text-xs h-9 px-4"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleConfirmRevertFlat}
+                disabled={revertWarningModal.loading}
+                className="text-xs h-9 px-4 bg-red-600 hover:bg-red-700 text-white font-medium shadow-sm transition-all"
+              >
+                {revertWarningModal.loading ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin mr-1.5" />
+                    Reverting...
+                  </>
+                ) : (
+                  "Revert to Flat GST"
+                )}
+              </Button>
             </div>
           </div>
         </div>

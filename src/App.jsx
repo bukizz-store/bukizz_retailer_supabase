@@ -44,6 +44,7 @@ import ProfileSettingsPage from "./pages/dashboard/settings/ProfileSettingsPage"
 import NotificationsPage from "./pages/dashboard/NotificationsPage";
 import SettlementsPage from "./pages/dashboard/SettlementsPage";
 import SettlementDetail from "./pages/dashboard/SettlementDetail";
+import CommissionsAndFeesPage from "./pages/dashboard/finance/CommissionsAndFeesPage";
 
 export default function App() {
   const initialize = useAuthStore((state) => state.initialize);
@@ -139,6 +140,7 @@ export default function App() {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="settlements" element={<SettlementsPage />} />
           <Route path="settlements/:id" element={<SettlementDetail />} />
+          <Route path="finance" element={<CommissionsAndFeesPage />} />
           <Route
             path="settings/warehouses"
             element={<WarehouseManagementPage />}
